@@ -6,6 +6,11 @@ using namespace tensorengine;
 using namespace std;
 
 InferenceEngineContext *InferenceEngine::createExecutionContext() {
+#ifdef __CUDACC__
+    auto res = new InferenceEngineContext(shared_from_this());
+    CUDA_CHECK(cudaStreamCreate(&res.stream_));
+    return res;
+#endif
     return new InferenceEngineContext(shared_from_this());
 }
 
@@ -39,8 +44,12 @@ std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext:
     for (int i = 0; i < node->inputs.size(); ++i) {
         input[i] = inputs_[node->inputs[i]];
     }
+    OperatorContext ctx(node->attributes);
+#ifdef __CUDACC__
+    ctx.setStream(stream_);
+#endif
     vector<shared_ptr<Tensor>> output{};
-    f(input, output, node->attributes);
+    f(input, output, ctx);
     unordered_map<std::string, std::shared_ptr<Tensor>> res{};
     assert(output.size() == node->outputs.size());
     for (int i = 0; i < node->outputs.size(); ++i) {
@@ -65,9 +74,8 @@ bool InferenceEngineContext::execute() {
         work.push_back(item);
     }
     while (outputs_.size() != engine->parsed_graph_->getConfigOutput().size()) {
-        // parallel
         auto node = work.pop();
-        workers.enqueue([this, &node]() {
+        auto f = [this, &node]() {
             auto res = std::move(nodeExec(node));
             if (node->isEnd()) {
                 outputs_.insert(res.begin(), res.end());
@@ -76,14 +84,23 @@ bool InferenceEngineContext::execute() {
             inputs_.insert(res.begin(), res.end());
             for (const auto &item: node->to) {
                 if (nodeReady(item)) {
-                    // TODO may run dup
+                    // TODO may run dup in multi-thread mode
                     work.push_back(item);
                 }
             }
-        });
+        };
+#ifdef __CUDACC__
+        f();
+        continue;
+#endif
+        // cpu parallel
+        workers.enqueue(f);
         // parallel
     }
 
+#ifdef __CUDACC__
+    CHECK(cudaStreamSynchronize(stream_));
+#endif
     state++;
     finish_cond_.notify_all();
     return true;

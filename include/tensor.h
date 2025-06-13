@@ -22,7 +22,11 @@ namespace tensorengine {
 
         Tensor(const std::vector<int>& dims, DataType dtype, DeviceType type): Tensor(dims, dtype, IDevice::getDevice(type)) {}
 
-        Tensor(std::vector<int> dims, DataType dtype, std::shared_ptr<IDevice> dev)
+        Tensor(std::vector<int> dims, DataType dtype, std::shared_ptr<IDevice> dev
+#ifdef __CUDACC__
+                , cudaStream_t stream
+#endif
+        )
                 : dims_(std::move(dims)), dtype_(dtype), device_(std::move(dev)) {
 
             stride_.resize(dims.size());
@@ -39,7 +43,12 @@ namespace tensorengine {
             // 计算字节大小
             size_t type_size = get_type_size(dtype_);
             bytes_ = num_elements * type_size;
-
+#ifdef __CUDACC__
+            if (device_->type() == DeviceType::CUDA) {
+                data_ = static_cast<std::shared_ptr<CUDADevice>>(device)_->allocateAsync(bytes_, stream);
+                return;
+            }
+#endif
             // 分配设备内存
             data_ = device_->allocate(bytes_);
         }

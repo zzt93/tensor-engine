@@ -4,6 +4,10 @@
 #include "enum.h"
 #include "iostream"
 
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#endif
+
 namespace tensorengine {
 
 // 设备抽象接口
@@ -33,25 +37,36 @@ namespace tensorengine {
         DeviceType type() const override { return DeviceType::CPU; }
     };
 
+#ifdef __CUDACC__
 
-// CUDA 实现
-//    class CUDADevice : public IDevice {
-//    public:
-//        void* allocate(size_t size) override {
-//            void* ptr;
-//            cudaMalloc(&ptr, size);
-//            return ptr;
-//        }
-//
-//        void free(void* ptr) override {
-//            cudaFree(ptr);
-//        }
-//
-//        void copy(void* dest, const void* src, size_t size) override {
-//            cudaMemcpy(dest, src, size, cudaMemcpyDefault);
-//        }
-//
-//
-//        DeviceType type() const override { return DeviceType::CUDA; }
-//    };
+    class CUDADevice : public IDevice {
+    public:
+        void* allocate(size_t size) override {
+            void* ptr;
+            CUDA_CHECK(cudaMalloc(&ptr, size));
+            return ptr;
+        }
+
+        void* allocateAsync(size_t size, cudaStream_t stream) override {
+            void* ptr;
+            CUDA_CHECK(cudaMallocAsync(&ptr, size, stream));
+            return ptr;
+        }
+
+        void free(void* ptr) override {
+            CUDA_CHECK(cudaFree(ptr));
+        }
+
+        void copy(void* dest, const void* src, size_t size) override {
+            CUDA_CHECK(cudaMemcpy(dest, src, size, cudaMemcpyDefault));
+        }
+
+        void copyAsync(void* dest, const void* src, size_t size, cudaStream_t stream) override {
+            CUDA_CHECK(cudaMemcpyAsync(dest, src, size, cudaMemcpyDefault, stream));
+        }
+
+        DeviceType type() const override { return DeviceType::CUDA; }
+    };
+#endif
+
 }

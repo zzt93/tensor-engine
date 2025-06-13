@@ -5,15 +5,53 @@
 #include "enum.h"
 #include "util.h"
 
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#include <cuda_fp16.h>
+
+     #define MY_CUDA_DISPATCH_FLOAT_AND_HALF(TYPE, NAME, ...)    \
+      switch(TYPE) {                                                \
+        case DataType::FP32: {                                              \
+          using scalar_t = float;                                   \
+          __VA_ARGS__(); break;                                        \
+        }                                                           \
+        case DataType::FP64: {                                             \
+          using scalar_t = double;                                  \
+          __VA_ARGS__();    break;                                  \
+        }                                                           \
+        case DataType::FP16: {                                               \
+          using scalar_t = __half;                                \
+          __VA_ARGS__();   break;                                   \
+        }                                                           \
+        default:                                                    \
+          fprintf(stderr, "CUDA not implemented for %s\n", #NAME); \
+      }
+#endif
+
+
 namespace tensorengine {
+
+    class OperatorContext {
+    public:
+        const std::vector<Attribute>& attrs_;
+
+        OperatorContext(const std::vector<Attribute>& attrs): attrs_(attrs){}
+#ifdef __CUDACC__
+        cudaStream_t stream_;
+
+        void setStream(cudaStream_t s) {
+            this->stream_ = s;
+        }
+#endif
+    };
 
     void checkInput(const std::vector<std::shared_ptr<Tensor>>& input);
 
-    void gemm(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, const std::vector<Attribute>& attrs);
-    void add(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, const std::vector<Attribute>& attrs);
-    void relu(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, const std::vector<Attribute>& attrs);
+    void gemm(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
+    void add(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
+    void relu(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
 
-    extern std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, const std::vector<Attribute>&)>> OP_MAP;
+    extern std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext&)>> OP_MAP;
 
     template<typename T>
     void add_cpu(const T* A, const T* B, T* C, size_t n);
@@ -43,39 +81,8 @@ namespace tensorengine {
           throw std::runtime_error(#NAME" not implemented for '" + tostring(TYPE) + "'"); \
       }
 
+
 #ifdef __CUDACC__
-    #include <cuda_runtime.h>
-
-    #include <cuda_fp16.h>
-
-     #define MY_CUDA_DISPATCH_FLOAT_AND_HALF(TYPE, NAME, ...)    \
-      switch(TYPE) {                                                \
-        case DataType::FP32: {                                              \
-          using scalar_t = float;                                   \
-          __VA_ARGS__(); break;                                        \
-        }                                                           \
-        case DataType::FP64: {                                             \
-          using scalar_t = double;                                  \
-          __VA_ARGS__();    break;                                  \
-        }                                                           \
-        case DataType::FP16: {                                               \
-          using scalar_t = __half;                                \
-          __VA_ARGS__();   break;                                   \
-        }                                                           \
-        default:                                                    \
-          fprintf(stderr, "CUDA not implemented for %s\n", #NAME); \
-      }
-
-    #define CUDA_CHECK(call) \
-    do { \
-        cudaError_t err = call; \
-        if (err != cudaSuccess) { \
-            fprintf(stderr, "CUDA error at %s:%d: %s\n", \
-                    __FILE__, __LINE__, cudaGetErrorString(err)); \
-            exit(-1); \
-        } \
-    } while (0)
-
     template<typename T, int TILE_SIZE>
     __global__ void matmul(T* A, T* B, T* C, int M, int N, int K);
 

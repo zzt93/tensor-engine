@@ -16,7 +16,13 @@ Demo engine like `tensorrt` or `onnxruntime` to learn C++
 ```
 
 - 线程池并发执行计算图（拓扑顺序）
-- 并发安全map、queue
+- 并发安全 hashmap（红黑树）、queue
 - 类似 ATen 的 AT_DISPATCH_FLOATING_TYPES_AND_HALF
 - fp16 特化实现
-- cuda stream 串联算子计算
+- cuda stream 串联 malloc、memcpy、算子计算
+- Graph(weight、结构) 和 input、计算中间结果 分离
+- 同时支持CUDA、CPU
+- CUDA operator
+  - tiled mm
+  - add
+  - relu

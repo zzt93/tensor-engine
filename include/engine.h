@@ -6,6 +6,10 @@
 #include <thread>
 #include "operator.h"
 
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#endif
+
 namespace tensorengine {
 
 
@@ -14,6 +18,10 @@ namespace tensorengine {
     class InferenceEngineContext {
     private:
         Logger logger{};
+#ifdef __CUDACC__
+        cudaStream_t stream_;
+#endif
+
         std::shared_ptr<InferenceEngine> engine = nullptr;
         ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> inputs_{};
         ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> outputs_{};
