@@ -16,6 +16,24 @@ namespace tensorengine {
         std::variant<int, float, std::string, Tensor*> value;
     };
 
+    class TensorMeta {
+    public:
+        const std::string name;
+        const std::vector<int> dim;
+        const DataType type;
+
+        TensorMeta(std::string name, std::vector<int> dim, DataType type): name(name), dim(std::move(dim)), type(type){}
+
+        bool operator<(const TensorMeta &rhs) const {
+            return name < rhs.name;
+        }
+
+        friend std::ostream &operator<<(std::ostream &os, const TensorMeta &meta) {
+            os << "name: " << meta.name << " dim: " << tostring(meta.dim) << " type: " << tostring(meta.type);
+            return os;
+        }
+    };
+
     class ParsedNode {
     public:
 //        std::vector<std::weak_ptr<ParsedNode>> from;
@@ -33,19 +51,29 @@ namespace tensorengine {
             to.push_back(t);
         }
 
+        bool isEnd() {
+            return to.empty();
+        }
     };
 
     class ParsedGraph {
-        bool isReady;
-    public:
         std::vector<std::shared_ptr<ParsedNode>> start;
-        std::unordered_map<std::string, std::shared_ptr<Tensor>> tensors;
-
-        ParsedGraph(std::vector<std::shared_ptr<ParsedNode>> start, std::unordered_map<std::string, std::shared_ptr<Tensor>> tensors): start(std::move(start)), tensors(std::move(tensors)) {
+        std::unordered_map<std::string, std::shared_ptr<Tensor>> weights;
+        std::set<TensorMeta> configInput;
+        std::set<TensorMeta> configOutput_;
+    public:
+        ParsedGraph(std::vector<std::shared_ptr<ParsedNode>> start, std::unordered_map<std::string, std::shared_ptr<Tensor>> tensors, std::set<TensorMeta> configInput, std::set<TensorMeta> configOutput): start(std::move(start)), weights(std::move(tensors)), configInput(std::move(configInput)), configOutput_(configOutput) {
         }
-
         void opt();
-        void setInput(const std::string& input, std::shared_ptr<Tensor> t);
+        const std::set<TensorMeta>& getConfigInput() {
+            return configInput;
+        }
+        const std::set<TensorMeta>& getConfigOutput() {
+            return configOutput_;
+        }
+        const std::vector<std::shared_ptr<ParsedNode>>& getStartNode() const {
+            return start;
+        }
     };
 
     class Node {
@@ -65,21 +93,24 @@ namespace tensorengine {
     private:
     public:
         std::vector<std::shared_ptr<Node>> nodes;
-        std::unordered_map<std::string, std::shared_ptr<Tensor>> tensors;
-        std::set<std::string> inputs;
-        std::set<std::string> outputs;
+        std::unordered_map<std::string, std::shared_ptr<Tensor>> weights;
+        std::set<TensorMeta> inputs;
+        std::set<TensorMeta> outputs;
 
         void addNode(std::shared_ptr<Node> node) {
             nodes.push_back(std::move(node));
         }
 
         void addWeight(const std::string& input, std::shared_ptr<Tensor> t) {
-            inputs.emplace(input);
-            tensors[input] = std::move(t);
+            weights[input] = std::move(t);
         }
 
-        void setInput(const std::string& input, std::shared_ptr<Tensor> t) {
-            addWeight(input, std::move(t));
+        void addInput(const TensorMeta& input) {
+            inputs.emplace(input);
+        }
+
+        void chooseOutput(const TensorMeta& output) {
+            outputs.emplace(output);
         }
 
         std::unique_ptr<ParsedGraph> parse();

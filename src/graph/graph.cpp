@@ -21,7 +21,8 @@ std::unique_ptr<ParsedGraph> Graph::parse() {
     }
     vector<pair<int, int>> edges;
 
-    unordered_map<string, vector<shared_ptr<ParsedNode>>> allOutputName;
+    // 一个变量只能被一个节点 “生产”（produce），可以被多个节点 “消费”（consume）
+    unordered_map<string, shared_ptr<ParsedNode>> allOutputName;
     unordered_map<shared_ptr<ParsedNode>, int> nodeNo;
     unordered_map<int, shared_ptr<ParsedNode>> idxNode;
 
@@ -33,19 +34,18 @@ std::unique_ptr<ParsedGraph> Graph::parse() {
 
         for (const auto &item: n->outputs) {
             if (allOutputName.find(item) != allOutputName.end()) {
-                allOutputName[item].push_back(n);
+                throw std::runtime_error("Invalid graph: multiple node has same output name: " + item);
             } else {
-                allOutputName[item] = vector<shared_ptr<ParsedNode>>{n};
+                allOutputName[item] = n;
             }
         }
     }
     for (const auto &n: parsedNodes) {
-        for (const auto &item: n->inputs) {
-            if (allOutputName.find(item) != allOutputName.end()) {
-                for (const auto &out: allOutputName[item]) {
-                    edges.push_back(make_pair(nodeNo[out], nodeNo[n]));
-                    out->addTo(n);
-                }
+        for (const auto &in: n->inputs) {
+            if (allOutputName.find(in) != allOutputName.end()) {
+                const auto &out = allOutputName[in];
+                edges.push_back(make_pair(nodeNo[out], nodeNo[n]));
+                out->addTo(n);
             }
         }
     }
@@ -61,7 +61,7 @@ std::unique_ptr<ParsedGraph> Graph::parse() {
         }
     }
 
-    return make_unique<ParsedGraph>(start, tensors);
+    return make_unique<ParsedGraph>(start, weights, inputs, outputs);
 }
 
 void ParsedGraph::opt() {
@@ -70,6 +70,3 @@ void ParsedGraph::opt() {
     optimizer.removeDeadNodes(this);
 }
 
-void ParsedGraph::setInput(const std::string &input, std::shared_ptr<Tensor> t) {
-    tensors[input] = std::move(t);
-}

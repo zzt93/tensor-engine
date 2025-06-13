@@ -2,5 +2,6 @@
 
 #include "iostream"
 
-const std::string op_relu = "relu";
-const std::string op_linear = "linear";
+const std::string OP_RELU = "Relu";
+const std::string OP_GEMM = "MatMul";
+const std::string OP_ADD = "Add";

@@ -1,6 +1,6 @@
 # tensor-engine
 
-Demo engine to learn `tensorrt`
+Demo engine like `tensorrt` or `onnxruntime` to learn C++
 
 ```
 - include/   # 头文件
@@ -14,3 +14,6 @@ Demo engine to learn `tensorrt`
     - test/      # 测试代码
 
 ```
+
+- 线程池并发执行计算图（拓扑顺序）
+- 并发安全map、queue

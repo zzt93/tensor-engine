@@ -13,7 +13,7 @@ namespace tensorengine {
     public:
         Tensor() = default;
 
-        Tensor(std::vector<int> dims, DataType dtype, DeviceType type): Tensor(dims, dtype, IDevice::getDevice(type)) {}
+        Tensor(const std::vector<int>& dims, DataType dtype, DeviceType type): Tensor(dims, dtype, IDevice::getDevice(type)) {}
 
         Tensor(std::vector<int> dims, DataType dtype, std::shared_ptr<IDevice> dev)
                 : dims_(std::move(dims)), dtype_(dtype), device_(std::move(dev)) {
@@ -66,6 +66,7 @@ namespace tensorengine {
 
         // 获取形状
         const std::vector<int>& dims() const { return dims_; }
+        const size_t size() const { return bytes_ / get_type_size(dtype_); }
 
         // 设备信息
         std::shared_ptr<IDevice> device() const { return device_; }

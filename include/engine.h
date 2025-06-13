@@ -3,6 +3,7 @@
 #include "graph.h"
 #include "util.h"
 #include "atomic"
+#include <thread>
 
 
 namespace tensorengine {
@@ -15,15 +16,21 @@ namespace tensorengine {
 
     class InferenceEngineContext {
     private:
+        Logger logger{};
         std::shared_ptr<InferenceEngine> engine = nullptr;
-        std::unordered_map<std::string, std::shared_ptr<Tensor>> input{};
-        std::unordered_map<std::string, std::shared_ptr<Tensor>> output{};
+        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> inputs{};
+        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> outputs{};
+
         std::atomic<int> state{0};
+        BlockingQueue<std::shared_ptr<ParsedNode>> work{};
+        ThreadPool workers;
 
         bool readyToExec();
+        std::unordered_map<std::string, std::shared_ptr<Tensor>> nodeExec(const std::shared_ptr<ParsedNode>& n);
+        bool nodeReady(const std::shared_ptr<ParsedNode>& n);
 
     public:
-        explicit InferenceEngineContext(const std::shared_ptr<InferenceEngine>& engine): engine(engine) {
+        explicit InferenceEngineContext(const std::shared_ptr<InferenceEngine>& engine): engine(engine), workers(4) {
         }
 
         InferenceEngineContext(const InferenceEngineContext&) = delete;            // 禁止拷贝构造
@@ -33,7 +40,7 @@ namespace tensorengine {
 
         void setInput(const std::string&name, const std::shared_ptr<Tensor> &tensor);
 
-        std::shared_ptr<Tensor> getOutput(const std::string&name);
+        const std::shared_ptr<Tensor> getOutput(const std::string&name);
 
         bool finished();
 
@@ -45,6 +52,8 @@ namespace tensorengine {
         std::unique_ptr<ParsedGraph> parsed_graph_ = nullptr;
 
     public:
+        friend class InferenceEngineContext;
+
         explicit InferenceEngine(Graph &graph) {
             parsed_graph_ = graph.parse();
             parsed_graph_->opt();

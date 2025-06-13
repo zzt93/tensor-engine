@@ -16,9 +16,9 @@ int main() {
 
     // 初始化引擎
     auto engine = make_shared<InferenceEngine>(graph); // 分配内存/加载权重
-    auto context = engine->createExecutionContext();
 
     // 执行推理
+    auto context = engine->createExecutionContext();
     shared_ptr<Tensor> input = getInputData();
     context->setInput("input_0", input);
     context->execute();
@@ -28,5 +28,6 @@ int main() {
 
 shared_ptr<Tensor> getInputData() {
     auto input = std::make_shared<Tensor>(std::vector<int>{1, 3, 224, 224}, DataType::FP32, DeviceType::CPU);
+    input->fill(rands(input->size(), 0, 1));
     return input;
 }

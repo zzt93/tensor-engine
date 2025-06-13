@@ -14,4 +14,9 @@ namespace tensorengine {
         WARNING,
         ERROR
     };
+
+    enum class DataType {
+        FP32,
+        FP16
+    };
 }
