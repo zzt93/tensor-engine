@@ -21,4 +21,9 @@ add_executable(tensor_engine main.cpp
         src/util/util.cpp
         src/graph/graph.cpp
         src/device/device.cpp
-        src/util/logger.cpp)
+        src/util/logger.cpp
+        src/kernels/operator.cpp
+        include/kernel/cuda/mm.cu
+        include/kernel/cuda/relu.cu
+        include/kernel/cpu/simple_operator.tpp
+        include/kernel/cuda/add.cu)

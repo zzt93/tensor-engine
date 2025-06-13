@@ -9,6 +9,13 @@
 
 namespace tensorengine {
 
+
+    class Attribute {
+    public:
+        std::string name;
+        std::variant<int, float, std::string> value;
+    };
+
     class Tensor {
     public:
         Tensor() = default;
@@ -66,11 +73,13 @@ namespace tensorengine {
 
         // 获取形状
         const std::vector<int>& dims() const { return dims_; }
+        const int dim(int d) const { return dims_[d]; }
         const size_t size() const { return bytes_ / get_type_size(dtype_); }
 
         // 设备信息
         std::shared_ptr<IDevice> device() const { return device_; }
         DeviceType device_type() const { return device_->type(); }
+        DataType data_type() const { return dtype_; }
 
         // 跨设备传输
         Tensor to(const std::shared_ptr<IDevice>& target_device) {

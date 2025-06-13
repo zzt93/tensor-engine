@@ -4,13 +4,10 @@
 #include "util.h"
 #include "atomic"
 #include <thread>
-
+#include "operator.h"
 
 namespace tensorengine {
 
-    class Batch {
-
-    };
 
     class InferenceEngine;
 
@@ -18,12 +15,14 @@ namespace tensorengine {
     private:
         Logger logger{};
         std::shared_ptr<InferenceEngine> engine = nullptr;
-        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> inputs{};
-        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> outputs{};
+        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> inputs_{};
+        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> outputs_{};
 
         std::atomic<int> state{0};
+        std::condition_variable finish_cond_;
         BlockingQueue<std::shared_ptr<ParsedNode>> work{};
         ThreadPool workers;
+        std::mutex output_lock_;
 
         bool readyToExec();
         std::unordered_map<std::string, std::shared_ptr<Tensor>> nodeExec(const std::shared_ptr<ParsedNode>& n);
@@ -44,7 +43,6 @@ namespace tensorengine {
 
         bool finished();
 
-        void wait();
     };
 
     class InferenceEngine: public std::enable_shared_from_this<InferenceEngine>  {

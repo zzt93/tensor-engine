@@ -13,7 +13,7 @@ std::vector<float> tensorengine::rands(int limit, float min, float max) {
 
     std::vector<float> floats(limit);
     for(int i = 0; i < limit; ++i) {
-        floats.push_back(dist(gen));
+        floats[i] = dist(gen);
     }
     return floats;
 }

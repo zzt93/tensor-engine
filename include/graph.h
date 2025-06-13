@@ -9,13 +9,6 @@
 
 namespace tensorengine {
 
-
-    class Attribute {
-    public:
-        std::string name;
-        std::variant<int, float, std::string, Tensor*> value;
-    };
-
     class TensorMeta {
     public:
         const std::string name;
@@ -80,6 +73,7 @@ namespace tensorengine {
     public:
         std::string name;
         std::string op_type;  // "Conv", "Relu", etc.
+        // ONNX 标准规定：某算子第 N 个参数，就取 inputs_ 列表里的第 N 个名字
         std::vector<std::string> inputs;
         std::vector<std::string> outputs;
         // 层参数 (如卷积的 kernel_size)
