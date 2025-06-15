@@ -1,10 +1,13 @@
 #pragma once
 
 
+#include <ostream>
+
 #include "iostream"
 #include "device.h"
 #include "type.h"
 #include "enum.h"
+#include "util.h"
 
 
 namespace tensorengine {
@@ -45,6 +48,7 @@ namespace tensorengine {
             bytes_ = num_elements * type_size;
 #ifdef __CUDACC__
             if (device_->type() == DeviceType::CUDA) {
+                stream_ = stream;
                 data_ = static_cast<std::shared_ptr<CUDADevice>>(device)_->allocateAsync(bytes_, stream);
                 return;
             }
@@ -77,7 +81,13 @@ namespace tensorengine {
 
         template<class T>
         void fill(const std::vector<T> ds) {
-            std::copy(ds.begin(), ds.end(), data<T>());
+#ifdef __CUDACC__
+            if (device_->type() == DeviceType::CUDA) {
+                static_cast<std::shared_ptr<CUDADevice>>(device)->copyAsync(data_, ds.data(), bytes_, stream_);
+                return;
+            }
+#endif
+            device_->copy(data_, ds.data(), bytes_);
         }
 
         // 获取形状
@@ -99,6 +109,9 @@ namespace tensorengine {
             return new_tensor;
         }
 
+        friend std::ostream& operator<<(std::ostream& os, const Tensor& tensor);
+
+
     private:
         void* data_ = nullptr;
         std::vector<int> dims_;
@@ -106,6 +119,9 @@ namespace tensorengine {
         DataType dtype_ = DataType::FP32;
         size_t bytes_ = 0;
         std::shared_ptr<IDevice> device_ = nullptr;
+#ifdef __CUDACC__
+        cudaStream_t stream_;
+#endif
 
         static size_t get_type_size(DataType dtype) {
             switch(dtype) {
@@ -114,6 +130,10 @@ namespace tensorengine {
                 default: throw std::runtime_error("Unsupported data type");
             }
         }
+
+        void printTensor(std::ostream& os, void* data,
+                         const std::vector<int>& dims, int current_dim,
+                         int elements_to_print, int indent = 0) const;
     };
 }
 

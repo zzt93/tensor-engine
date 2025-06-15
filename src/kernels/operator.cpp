@@ -3,11 +3,28 @@
 using namespace tensorengine;
 
 namespace tensorengine {
-    std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext& ctx)>> OP_MAP = {
+    std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext& ctx)>> M_OP_MAP = {
             {OP_GEMM, gemm},
             {OP_ADD, add},
             {OP_RELU, relu},
+            {OP_EXPAND, broadcast},
     };
+
+    std::unordered_map<std::string, OperatorDesc> M_OP_DESC = [] {
+        std::unordered_map<std::string, OperatorDesc> m{
+            {OP_GEMM, OperatorDesc{BroadCastType::Unidirectional, true }},
+            {OP_ADD, OperatorDesc{BroadCastType::Multidirectional, true}},
+            {OP_RELU, OperatorDesc{BroadCastType::None, true}},
+            {OP_EXPAND, OperatorDesc{BroadCastType::None, true}},
+        };
+        for (auto pair : m) {
+            for (auto dev : AllDevice) {
+                pair.second.deviceBroadcast[dev] = operator_default_broadcast;
+            }
+        }
+        m[OP_GEMM].deviceBroadcast[DeviceType::CUDA] = gemm_cuda_broadcast;
+        return std::move(m);
+    }();
 }
 
 
@@ -139,5 +156,42 @@ void tensorengine::relu(const std::vector<std::shared_ptr<Tensor>> &input, std::
 #endif
     }
 
+}
+
+// https://github.com/onnx/onnx/blob/main/docs/Broadcasting.md
+void tensorengine::broadcast(const std::vector<std::shared_ptr<Tensor>> &input,
+    std::vector<std::shared_ptr<Tensor>> &output, OperatorContext &ctx) {
+    auto attributes = ctx.attrs_;
+    BroadCastType type = static_cast<BroadCastType>(std::get<0>(attributes[0].value));
+    switch (type) {
+        case BroadCastType::None:
+            assert(false);
+        case BroadCastType::Multidirectional:
+            break;
+        case BroadCastType::Unidirectional:
+             break;
+    }
+}
+
+bool tensorengine::gemm_cuda_broadcast(const std::initializer_list<std::vector<int>> vs) {
+    auto it = vs.begin();
+    auto a = *it++;
+    auto b = *it;
+    if (a.size() == 3 && b.size() == 3) {
+        return a == b;
+    }
+    if (a.size() == 3 && b.size() == 2) {
+        for (size_t i = 1; i < a.size(); i++) {
+            if (a[i] != b[i-1]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+bool tensorengine::operator_default_broadcast(const std::initializer_list<std::vector<int>> vectors) {
+    return false;
 }
 

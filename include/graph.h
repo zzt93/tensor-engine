@@ -44,28 +44,27 @@ namespace tensorengine {
             to.push_back(t);
         }
 
-        bool isEnd() {
+        bool isEnd() const {
             return to.empty();
         }
     };
 
-    class ParsedGraph {
-        std::vector<std::shared_ptr<ParsedNode>> start;
-        std::unordered_map<std::string, std::shared_ptr<Tensor>> weights;
-        std::set<TensorMeta> configInput;
+    class ExecutionGraph {
+        std::vector<std::shared_ptr<ParsedNode>> start_;
+        std::unordered_map<std::string, std::shared_ptr<Tensor>> weights_;
+        std::set<TensorMeta> configInput_;
         std::set<TensorMeta> configOutput_;
     public:
-        ParsedGraph(std::vector<std::shared_ptr<ParsedNode>> start, std::unordered_map<std::string, std::shared_ptr<Tensor>> tensors, std::set<TensorMeta> configInput, std::set<TensorMeta> configOutput): start(std::move(start)), weights(std::move(tensors)), configInput(std::move(configInput)), configOutput_(configOutput) {
+        ExecutionGraph(std::vector<std::shared_ptr<ParsedNode>> start, std::unordered_map<std::string, std::shared_ptr<Tensor>> tensors, std::set<TensorMeta> configInput, std::set<TensorMeta> configOutput): start_(std::move(start)), weights_(std::move(tensors)), configInput_(std::move(configInput)), configOutput_(configOutput) {
         }
-        void opt();
         const std::set<TensorMeta>& getConfigInput() {
-            return configInput;
+            return configInput_;
         }
         const std::set<TensorMeta>& getConfigOutput() {
             return configOutput_;
         }
         const std::vector<std::shared_ptr<ParsedNode>>& getStartNode() const {
-            return start;
+            return start_;
         }
     };
 
@@ -74,22 +73,26 @@ namespace tensorengine {
         std::string name;
         std::string op_type;  // "Conv", "Relu", etc.
         // ONNX 标准规定：某算子第 N 个参数，就取 inputs_ 列表里的第 N 个名字
-        std::vector<std::string> inputs;
+        std::vector<std::string> inputs_;
         std::vector<std::string> outputs;
         // 层参数 (如卷积的 kernel_size)
         std::vector<Attribute> attributes;
 
         Node(std::string name, const std::string &opType, const std::vector<std::string> &inputs, const std::vector<std::string> &outputs, const std::vector<Attribute> &attributes) : name(std::move(
-                name)), op_type(opType), inputs(inputs), outputs(outputs), attributes(attributes) {}
+                name)), op_type(opType), inputs_(inputs), outputs(outputs), attributes(attributes) {}
+
+        std::vector<std::vector<int>> calOutputDim(std::unordered_map<std::string, TensorMeta>& metas);
     };
 
     class Graph {
     private:
-    public:
-        std::vector<std::shared_ptr<Node>> nodes;
+        std::list<std::shared_ptr<Node>> nodes;
         std::unordered_map<std::string, std::shared_ptr<Tensor>> weights;
         std::set<TensorMeta> inputs;
         std::set<TensorMeta> outputs;
+    public:
+        friend class GraphOptimizer;
+
 
         void addNode(std::shared_ptr<Node> node) {
             nodes.push_back(std::move(node));
@@ -107,18 +110,62 @@ namespace tensorengine {
             outputs.emplace(output);
         }
 
-        std::unique_ptr<ParsedGraph> parse();
+        void opt();
+        std::unique_ptr<ExecutionGraph> parse();
 
         ~Graph() {
         }
+
     };
 
 
     class GraphOptimizer {
+        inline static Logger logger{};
+
     public:
-        void fuseLayers(ParsedGraph*);
-        void removeDeadNodes(ParsedGraph*);
+        // output 反向推导 input，如果模式符合，融合替换节点
+        static void fuseLayers(Graph&);
+        // output 反向推导 input，删除未使用节点
+        static void removeDeadNodes(Graph&);
+        // input 前向推导，如果input都是常量，计算并删除节点
+        static void constFolding(Graph&);
     };
+
+    class OperatorPattern {
+    public:
+        std::set<std::string> inputOps;
+        std::string outputOp;
+
+        OperatorPattern(const std::set<std::string> &input_ops, const std::string &output_op)
+            : inputOps(input_ops),
+              outputOp(output_op) {
+        }
+
+        friend bool operator==(const OperatorPattern &lhs, const OperatorPattern &rhs) {
+            return lhs.inputOps == rhs.inputOps
+                   && lhs.outputOp == rhs.outputOp;
+        }
+
+        friend bool operator!=(const OperatorPattern &lhs, const OperatorPattern &rhs) {
+            return !(lhs == rhs);
+        }
+
+        friend std::size_t hash_value(const OperatorPattern &obj) {
+            std::size_t seed = 0x495FD938;
+            seed ^= (seed << 6) + (seed >> 2) + 0x6F246971 + setHash(obj.inputOps);
+            seed ^= (seed << 6) + (seed >> 2) + 0x0CC0D21B + std::hash<std::string>()(obj.outputOp);
+            return seed;
+        }
+    };
+
+    struct OperatorPatternHash {
+        size_t operator()(const OperatorPattern& k) const {
+            return hash_value(k);
+        }
+    };
+
+
+    extern std::unordered_map<OperatorPattern, std::string, OperatorPatternHash> g_fusePattern;
 
 }
 

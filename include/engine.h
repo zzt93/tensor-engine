@@ -55,14 +55,14 @@ namespace tensorengine {
 
     class InferenceEngine: public std::enable_shared_from_this<InferenceEngine>  {
     private:
-        std::unique_ptr<ParsedGraph> parsed_graph_ = nullptr;
+        std::unique_ptr<ExecutionGraph> parsed_graph_ = nullptr;
 
     public:
         friend class InferenceEngineContext;
 
         explicit InferenceEngine(Graph &graph) {
+            graph.opt();
             parsed_graph_ = graph.parse();
-            parsed_graph_->opt();
         }
 
         InferenceEngineContext* createExecutionContext();

@@ -316,10 +316,20 @@ namespace tensorengine {
         }
     };
 
+    template <typename T>
+    size_t setHash(const std::set<T>& s) {
+        size_t seed = 0;
+        // 合并集合中所有元素的哈希值
+        for (const auto& elem : s) {
+            seed ^= std::hash<T>{}(elem) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
 
     std::vector<float> rands(int limit, float min, float max);
 
     std::string tostring(DataType value);
+    std::string tostring(DeviceType value);
 
     template<typename K, typename V>
     std::string tostring(const ConcurrentHashMap<K, V>& m) {
@@ -393,6 +403,10 @@ namespace tensorengine {
 
         void setLevel(LogLevel lvl) {
             level = lvl;
+        }
+
+        void error(const std::string &msg) {
+            log(LogLevel::ERROR, msg);
         }
 
         void log(LogLevel msgLevel, const std::string &msg) {

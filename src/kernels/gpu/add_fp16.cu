@@ -5,11 +5,11 @@
 #include <cuda_fp16.h>
 
 
-template<typename T>
-__global__ void add(const T* A, const T* B, T* C, size_t size) {
+template<>
+__global__ void add(const __half* A, const __half* B, __half* C, size_t size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
-        C[idx] = A[idx] + B[idx];
+        C[idx] = __hadd(A[idx], B[idx]); // __hadd专门的FP16加法
     }
 }
 

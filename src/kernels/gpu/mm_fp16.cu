@@ -1,19 +1,19 @@
-#pragma once
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
-template<typename T, int TILE_SIZE>
-__global__ void matmul(T* A, T* B, T* C, int M, int N, int K) {
-    __shared__ T tileA[TILE_SIZE][TILE_SIZE];
-    __shared__ T tileB[TILE_SIZE][TILE_SIZE];
+
+template<int TILE_SIZE>
+__global__ void matmul(__half* A, __half* B, __half* C, int M, int N, int K) {
+    __shared__ __half tileA[TILE_SIZE][TILE_SIZE];
+    __shared__ __half tileB[TILE_SIZE][TILE_SIZE];
 
     int tx = threadIdx.x, ty = threadIdx.y;  // 块内线程坐标
     int row = blockIdx.y * blockDim.y + ty;  // 全局行索引
     int col = blockIdx.x * blockDim.x + tx;  // 全局列索引
 
-    T sum = 0.0;
+    __half sum = 0.0;
     for (int t = 0; t < (K + TILE_SIZE - 1) / TILE_SIZE; t++) {
         // 协作加载数据到共享内存
         int tiledCol = t * TILE_SIZE + tx;
@@ -27,7 +27,7 @@ __global__ void matmul(T* A, T* B, T* C, int M, int N, int K) {
 
         // 用共享内存计算子块乘积
         for (int k = 0; k < TILE_SIZE; k++) {
-            sum += tileA[ty][k] * tileB[k][tx];
+            sum += __hmul(tileA[ty][k], tileB[k][tx]);
         }
 
         __syncthreads();  // 确保计算完成再加载下一块

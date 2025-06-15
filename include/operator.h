@@ -49,9 +49,22 @@ namespace tensorengine {
 
     void gemm(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
     void add(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
+    void mma(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
     void relu(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
+    void broadcast(const std::vector<std::shared_ptr<Tensor>>& input, std::vector<std::shared_ptr<Tensor>>& output, OperatorContext& ctx);
 
-    extern std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext&)>> OP_MAP;
+    bool gemm_cuda_broadcast(const std::initializer_list<std::vector<int>> vectors);
+    bool operator_default_broadcast(const std::initializer_list<std::vector<int>> vectors);
+
+    class OperatorDesc {
+      public:
+      BroadCastType broadcast;
+      bool elementwise;
+      std::unordered_map<DeviceType, std::function<bool(const std::initializer_list<std::vector<int>> vectors)>> deviceBroadcast;
+      std::function<std::vector<std::vector<int>>(std::initializer_list<std::vector<int>>)> calDim;
+    };
+    extern std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext&)>> M_OP_MAP;
+    extern std::unordered_map<std::string, OperatorDesc> M_OP_DESC;
 
     template<typename T>
     void add_cpu(const T* A, const T* B, T* C, size_t n);

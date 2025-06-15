@@ -10,6 +10,8 @@ namespace tensorengine {
         CUDA
     };
 
+    constexpr DeviceType AllDevice[] = {DeviceType::CPU, DeviceType::CUDA};
+
     enum class LogLevel {
         DEBUG = 0,
         INFO,
@@ -23,7 +25,17 @@ namespace tensorengine {
         FP64,
     };
 
+    enum class BroadCastType {
+        Multidirectional,
+        Unidirectional,
+        None
+    };
+
     const std::string OP_RELU = "Relu";
     const std::string OP_GEMM = "MatMul";
     const std::string OP_ADD = "Add";
+    const std::string OP_EXPAND = "Expand";
+    const std::string F_OP_MMA = "MatMulAdd";
+    const std::string F_OP_BATCH_ADD = "MatMulAdd";
+    const std::string F_OP_BATCH_MM = "MatMulAdd";
 }

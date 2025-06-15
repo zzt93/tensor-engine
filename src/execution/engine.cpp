@@ -39,7 +39,7 @@ bool InferenceEngineContext::readyToExec() {
 }
 
 std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext::nodeExec(const std::shared_ptr<ParsedNode> &node) {
-    auto f = OP_MAP[node->op_type];
+    auto f = M_OP_MAP[node->op_type];
     vector<shared_ptr<Tensor>> input(node->inputs.size());
     for (int i = 0; i < node->inputs.size(); ++i) {
         input[i] = inputs_[node->inputs[i]];
@@ -68,7 +68,7 @@ bool InferenceEngineContext::execute() {
     if (!readyToExec() && state != 0) {
         return false;
     }
-    state++;
+    ++state;
 
     for (const auto &item: engine->parsed_graph_->getStartNode()) {
         work.push_back(item);
@@ -101,7 +101,7 @@ bool InferenceEngineContext::execute() {
 #ifdef __CUDACC__
     CHECK(cudaStreamSynchronize(stream_));
 #endif
-    state++;
+    ++state;
     finish_cond_.notify_all();
     return true;
 }
