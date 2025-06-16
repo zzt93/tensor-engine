@@ -23,7 +23,7 @@ namespace tensorengine {
             }
         }
         m[OP_GEMM].deviceBroadcast[DeviceType::CUDA] = gemm_cuda_broadcast;
-        return std::move(m);
+        return m;
     }();
 }
 

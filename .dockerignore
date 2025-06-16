@@ -1,0 +1,13 @@
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+*.o
+*.so
+*.a
+*.pyc
+*.pyo
+__pycache__/
+.vscode/
+*.swp
+*.swo
+.git/

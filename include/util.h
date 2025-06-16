@@ -183,7 +183,7 @@ namespace tensorengine {
         }
 
         void logAsync(LogLevel msgLevel, const std::string &msg) {
-
+            this->log(msgLevel, msg);
         }
     };
 

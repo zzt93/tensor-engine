@@ -88,7 +88,7 @@ bool InferenceEngineContext::execute() {
             continue;
         }
         auto f = [this, &node, &work, &dummy]() {
-            auto res = std::move(nodeExec(node));
+            auto res = nodeExec(node);
             if (node->isEnd()) {
                 outputs_.insert(res.begin(), res.end());
                 work.push_back(dummy);

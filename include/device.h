@@ -3,6 +3,7 @@
 
 #include "enum.h"
 #include "iostream"
+#include "memory"
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
