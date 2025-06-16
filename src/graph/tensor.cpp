@@ -2,83 +2,78 @@
 
 namespace tensorengine {
 
-    void Tensor::printTensor(std::ostream& os, void* data,
-                             const std::vector<int>& dims, int current_dim,
-                             int elements_to_print, int indent) const {
-        if (current_dim == dims.size() - 1) {
-            // 最后一维，打印元素
-            os << std::string(indent * 4, ' ') << "[";
-            int elements = std::min(elements_to_print, dims[current_dim]);
-
-            for (int i = 0; i < elements; ++i) {
-                switch (this->dtype_) {
-                    case DataType::FP32: {
-                        float* floatData = static_cast<float*>(data);
-                        os << floatData[i];
-                        break;
-                    }
-                    case DataType::FP64: {
-                        const double* floatData = static_cast<double*>(data);
-                        os << floatData[i];
-                        break;
-                    }
-                    case DataType::FP16: {
-                        float* floatData = static_cast<float*>(data);
-                        os << "fp16 " << floatData[i];
-                        break;
-                    }
-                    default:
-                        os << "?";
-                }
-
-                if (i < elements - 1) {
-                    os << ", ";
-                }
-            }
-
-            if (elements < dims[current_dim]) {
-                os << ", ...";  // 表示还有更多元素未打印
-            }
-            os << "]";
-        } else {
-            // 非最后一维，递归打印
-            os << std::string(indent * 4, ' ') << "[\n";
-            int elements = std::min(elements_to_print, dims[current_dim]);
-
-            for (int i = 0; i < elements; ++i) {
-                void* subData = static_cast<char*>(data) + i * this->stride_[current_dim] *
-                              (this->dtype_ == DataType::FP32 ? sizeof(float) : sizeof(int));
-
-                printTensor(os, subData, dims, current_dim + 1, elements_to_print, indent + 1);
-
-                if (i < elements - 1) {
-                    os << ",\n";
-                }
-            }
-
-            if (elements < dims[current_dim]) {
-                os << ",\n" << std::string((indent + 1) * 4, ' ') << "...";
-            }
-
-            os << "\n" << std::string(indent * 4, ' ') << "]";
-        }
-    }
-
-    std::ostream & operator<<(std::ostream &os, const Tensor &obj) {
+    std::ostream &operator<<(std::ostream &os, const Tensor &obj) {
         if (obj.data_ == nullptr) {
             os << "Tensor(null)";
             return os;
         }
         os
-               << "dims_: " << tostring(obj.dims_)
-               << " stride_: " << tostring(obj.stride_)
-               << " dtype_: " << tostring(obj.dtype_)
-        << " device_: " << tostring(obj.device_->type())
-        ;
+                << "dims_: " << tostring(obj.dims_)
+                << ", stride_: " << tostring(obj.stride_)
+                << ", dtype_: " << tostring(obj.dtype_)
+                << ", device_: " << tostring(obj.device_->type())
+                << ", data_: " << std::endl;;
 
         const int elements_to_print = 3;  // 每个维度打印前3个元素
-        obj.printTensor(os, obj.data_, obj.dims_, 0, elements_to_print);
+        std::vector<int> indices(obj.dims_.size(), 0);
+        obj.printRecursive(os, indices, 0, elements_to_print);
         return os;
+    }
+
+
+    float Tensor::getElement(size_t offset) const {
+        switch (dtype_) {
+            case DataType::FP32:
+                return static_cast<const float *>(data_)[offset];
+            case DataType::FP64:
+                return static_cast<float>(static_cast<const double *>(data_)[offset]);
+            case DataType::FP16:
+                // 你的FP16转float实现
+//                return fp16_to_float(static_cast<const uint16_t*>(data_)[offset]);
+            default:
+                return 0.0f;
+        }
+    }
+
+    void Tensor::printRecursive(std::ostream &os, std::vector<int> &indices, int dim, int n) const {
+        if (dim == dims_.size()) {
+            size_t offset = getOffset(stride_, indices);
+            os << std::fixed << std::setprecision(5) << getElement(offset) << " ";
+            return;
+        }
+        os << "[";
+        int dim_size = dims_[dim];
+        bool newline = (dim + 1 < (int) dims_.size());  // 非最内层维度，打印后换行
+        if (dim_size <= 2 * n) {
+            for (int i = 0; i < dim_size; ++i) {
+                indices[dim] = i;
+                printRecursive(os, indices, dim + 1, n);
+                if (newline && i != dim_size - 1) os << "\n"; // 换行，最后一个不加
+            }
+        } else {
+            // 前n个
+            for (int i = 0; i < n; ++i) {
+                indices[dim] = i;
+                printRecursive(os, indices, dim + 1, n);
+                if (newline && i != n - 1) os << "\n";
+            }
+            os << (newline ? "\n... \n" : "... "); // 省略块
+            // 后n个
+            for (int i = dim_size - n; i < dim_size; ++i) {
+                indices[dim] = i;
+                printRecursive(os, indices, dim + 1, n);
+                if (newline && i != dim_size - 1) os << "\n";
+            }
+        }
+        os << "]";
+        if (dim == 0) os << std::endl;  // 最外层再额外换行
+    }
+
+    size_t Tensor::getOffset(const std::vector<int> &strides, const std::vector<int> &indices) const {
+        size_t offset = 0;
+        for (size_t d = 0; d < strides.size(); ++d)
+            offset += strides[d] * indices[d];
+        return offset;
     }
 
 }

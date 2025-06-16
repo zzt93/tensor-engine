@@ -22,11 +22,12 @@ int main() {
     // 执行推理
     auto context = engine->createExecutionContext();
     shared_ptr<Tensor> input = getInputData();
+    cout << "input: " << *input << endl;
     context->setInput("input_0", input);
     bool exec = context->execute();
     if (exec) {
         shared_ptr<Tensor> output = context->getOutput("output_0");
-        cout << *output << endl;
+        cout << "output: " << *output << endl;
     }
 }
 

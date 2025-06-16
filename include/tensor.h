@@ -131,9 +131,10 @@ namespace tensorengine {
             }
         }
 
-        void printTensor(std::ostream& os, void* data,
-                         const std::vector<int>& dims, int current_dim,
-                         int elements_to_print, int indent = 0) const;
+        float getElement(size_t offset) const;
+        void printRecursive(std::ostream& os, std::vector<int>& indices, int dim, int n) const;
+        size_t getOffset(const std::vector<int>& strides, const std::vector<int>& indices) const;
+
     };
 }
 
