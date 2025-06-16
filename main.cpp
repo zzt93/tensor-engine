@@ -23,13 +23,16 @@ int main() {
     auto context = engine->createExecutionContext();
     shared_ptr<Tensor> input = getInputData();
     context->setInput("input_0", input);
-    context->execute();
-    shared_ptr<Tensor> output = context->getOutput("output_0");
-    cout << *output << endl;
+    bool exec = context->execute();
+    if (exec) {
+        shared_ptr<Tensor> output = context->getOutput("output_0");
+        cout << *output << endl;
+    }
 }
 
 shared_ptr<Tensor> getInputData() {
-    auto input = std::make_shared<Tensor>(std::vector<int>{1, 3, 224, 224}, DataType::FP32, g_device);
+    auto input = std::make_shared<Tensor>(std::vector<int>{15, 256}, DataType::FP32, g_device);
+//    auto input = std::make_shared<Tensor>(std::vector<int>{1, 15, 256}, DataType::FP32, g_device);
     input->fill(rands(input->size(), 0, 1));
     return input;
 }

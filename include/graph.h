@@ -66,6 +66,9 @@ namespace tensorengine {
         const std::vector<std::shared_ptr<ParsedNode>>& getStartNode() const {
             return start_;
         }
+        const std::unordered_map<std::string, std::shared_ptr<Tensor>>& getWeight() const {
+            return weights_;
+        }
     };
 
     class Node {

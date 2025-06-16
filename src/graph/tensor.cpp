@@ -69,7 +69,7 @@ namespace tensorengine {
             os << "Tensor(null)";
             return os;
         }
-        return os
+        os
                << "dims_: " << tostring(obj.dims_)
                << " stride_: " << tostring(obj.stride_)
                << " dtype_: " << tostring(obj.dtype_)
@@ -78,7 +78,7 @@ namespace tensorengine {
 
         const int elements_to_print = 3;  // 每个维度打印前3个元素
         obj.printTensor(os, obj.data_, obj.dims_, 0, elements_to_print);
-
+        return os;
     }
 
 }

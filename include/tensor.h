@@ -32,11 +32,11 @@ namespace tensorengine {
         )
                 : dims_(std::move(dims)), dtype_(dtype), device_(std::move(dev)) {
 
-            stride_.resize(dims.size());
+            stride_.resize(dims_.size());
             int s = 1;
-            for (int i = dims.size()-1; i >= 0 ; --i) {
+            for (int i = dims_.size()-1; i >= 0 ; --i) {
                 stride_[i] = s;
-                s *= dims[i];
+                s *= dims_[i];
             }
 
             // 计算元素总数

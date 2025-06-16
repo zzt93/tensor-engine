@@ -28,7 +28,6 @@ namespace tensorengine {
 
         std::atomic<int> state{0};
         std::condition_variable finish_cond_;
-        BlockingQueue<std::shared_ptr<ParsedNode>> work{};
         ThreadPool workers;
         std::mutex output_lock_;
 

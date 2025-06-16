@@ -18,6 +18,7 @@
 #include <functional>
 #include <stdexcept>
 #include <list>
+#include <sstream>
 
 
 #define CUDA_CHECK(call) \
@@ -27,6 +28,17 @@
             fprintf(stderr, "CUDA error at %s:%d: %s\n", \
                     __FILE__, __LINE__, cudaGetErrorString(err)); \
             exit(-1); \
+        } \
+    } while (0)
+
+
+#define ASSERT_MSG(cond, msg_expr) \
+    do { \
+        if (!(cond)) { \
+            std::ostringstream _oss; _oss << msg_expr; \
+            std::fprintf(stderr, "Assertion failed: %s\nMessage: %s\nFile: %s:%d\n", \
+                         #cond, _oss.str().c_str(), __FILE__, __LINE__); \
+            std::abort(); \
         } \
     } while (0)
 
@@ -41,8 +53,8 @@ namespace tensorengine {
             ListNode() {}
             explicit ListNode(const T& value) : t(value), next(nullptr) {}
         };
-        std::mutex head_;
-        std::mutex tail_;
+        std::mutex head_m_;
+        std::mutex tail_m_;
         std::condition_variable elem_cond_;
         std::atomic<bool> stop_;
 
@@ -70,14 +82,18 @@ namespace tensorengine {
         }
 
         T pop() {
-            std::unique_lock<std::mutex> lock(head_);
+            std::unique_lock<std::mutex> lock(head_m_);
             elem_cond_.wait(lock, [this]{ return !this->empty() || stop_; });
             if (stop_) {
                 throw std::runtime_error("waiting for data interrupted");
             }
             auto node = h_->next;
-            assert(node != nullptr);
+            ASSERT_MSG(node != nullptr, "empty queue");
             h_->next = node->next;
+            if (t_ == node) {
+                // 如果弹出的是最后一个节点
+                t_ = h_; // tail 重新指向 dummy head
+            }
             auto t = std::move(node->t);
             delete node;
             size_--;
@@ -87,7 +103,7 @@ namespace tensorengine {
         void push_back(const T& t) {
             auto node = new ListNode(t);
             {
-                std::lock_guard<std::mutex> lock(tail_);
+                std::lock_guard<std::mutex> lock(tail_m_);
                 t_->next = node;
                 t_ = node;
                 size_++;
@@ -100,6 +116,75 @@ namespace tensorengine {
             elem_cond_.notify_all();
         }
 
+    };
+
+    class Logger {
+    private:
+        LogLevel level;
+        std::ofstream ofs;
+        std::mutex mtx;
+        BlockingQueue<std::string> queue{};
+
+        static std::string getCurrentTime() {
+            auto t = std::time(nullptr);
+            char buf[20];
+            std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
+            return buf;
+        }
+
+        static std::string levelToString(LogLevel lvl) {
+            switch (lvl) {
+                case LogLevel::DEBUG:
+                    return "DEBUG";
+                case LogLevel::INFO:
+                    return "INFO";
+                case LogLevel::WARNING:
+                    return "WARNING";
+                case LogLevel::ERROR:
+                    return "ERROR";
+                default:
+                    return "UNKNOWN";
+            }
+        }
+
+    public:
+        explicit Logger(LogLevel lvl = LogLevel::INFO, const std::string &filename = "") : level(lvl) {
+            if (!filename.empty()) {
+                ofs.open(filename, std::ios::app);
+            }
+        }
+
+        ~Logger() {
+            if (ofs.is_open()) {
+                ofs.close();
+            }
+        }
+
+        void setLevel(LogLevel lvl) {
+            level = lvl;
+        }
+
+        void error(const std::string &msg) {
+            log(LogLevel::ERROR, msg);
+        }
+
+        void log(LogLevel msgLevel, const std::string &msg) {
+            if (msgLevel < level) return;
+            std::string timeStr = getCurrentTime();
+            std::string levelStr = levelToString(msgLevel);
+            std::string fullMsg = "[" + timeStr + "] " + levelStr + ": " + msg;
+
+            std::lock_guard<std::mutex> lock(mtx);
+            if (ofs.is_open()) {
+                ofs << fullMsg << std::endl;
+            } else {
+                std::cout << fullMsg << std::endl;
+            }
+        }
+
+        void logAsync(LogLevel msgLevel, const std::string &msg) {
+
+        }
     };
 
     template<typename T, typename _Compare=std::less<T>>
@@ -132,6 +217,7 @@ namespace tensorengine {
             std::lock_guard<std::mutex> lock(bucket_lock_[i]);
             if (bucket_[i].empty()) {
                 bucket_[i].push_back(pair);
+                size_++;
             } else {
                 for (auto &item: bucket_[i]) {
                     if (equal_f_(item.first, pair.first)) {
@@ -140,6 +226,7 @@ namespace tensorengine {
                     }
                 }
                 bucket_[i].push_back(pair);
+                size_++;
             }
         }
 
@@ -254,17 +341,17 @@ namespace tensorengine {
             return iterator(&bucket_, 0, bucket_[0].begin());
         }
         iterator end() {
-            return iterator(&bucket_, bucket_.size(), typename Bucket::iterator{});
+            return iterator(&bucket_, size(), typename Bucket::iterator{});
+        }
+        using const_iterator = iterator;
+        const_iterator begin() const {
+            return const_iterator(&bucket_, 0, bucket_[0].cbegin());
+        }
+        const_iterator end() const {
+            return const_iterator(&bucket_, size(), typename Bucket::const_iterator{});
         }
 
-        iterator begin() const {
-            return begin();
-        }
-        iterator end() const {
-            return end();
-        }
-
-        size_t size() {
+        size_t size() const {
             return size_;
         }
         
@@ -282,6 +369,7 @@ namespace tensorengine {
         BlockingQueue<std::function<void()>> tasks;
 
         std::atomic<bool> stop;
+        inline static Logger logger{};
     public:
         explicit ThreadPool(size_t thread_count): stop(false){
             for (size_t i = 0; i < thread_count; ++i) {
@@ -311,8 +399,21 @@ namespace tensorengine {
 
             if (stop)
                 throw std::runtime_error("enqueue on stopped ThreadPool");
-            tasks.push_back([task]() { (*task)(); });
+            tasks.push_back([task, this]() {
+                try {
+                    (*task)();
+                } catch (...) {
+                    logger.error("exec met exception");
+                    stop = true;
+                    // 这部分可以省略，因为 packaged_task 已自动处理
+                }
+            });
+
             return res;
+        }
+
+        bool stopped() {
+            return stop;
         }
     };
 
@@ -359,73 +460,5 @@ namespace tensorengine {
         return oss.str();
     }
 
-    class Logger {
-    private:
-        LogLevel level;
-        std::ofstream ofs;
-        std::mutex mtx;
-        BlockingQueue<std::string> queue{};
-
-        static std::string getCurrentTime() {
-            auto t = std::time(nullptr);
-            char buf[20];
-            std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
-            return buf;
-        }
-
-        static std::string levelToString(LogLevel lvl) {
-            switch (lvl) {
-                case LogLevel::DEBUG:
-                    return "DEBUG";
-                case LogLevel::INFO:
-                    return "INFO";
-                case LogLevel::WARNING:
-                    return "WARNING";
-                case LogLevel::ERROR:
-                    return "ERROR";
-                default:
-                    return "UNKNOWN";
-            }
-        }
-
-    public:
-        explicit Logger(LogLevel lvl = LogLevel::INFO, const std::string &filename = "") : level(lvl) {
-            if (!filename.empty()) {
-                ofs.open(filename, std::ios::app);
-            }
-        }
-
-        ~Logger() {
-            if (ofs.is_open()) {
-                ofs.close();
-            }
-        }
-
-        void setLevel(LogLevel lvl) {
-            level = lvl;
-        }
-
-        void error(const std::string &msg) {
-            log(LogLevel::ERROR, msg);
-        }
-
-        void log(LogLevel msgLevel, const std::string &msg) {
-            if (msgLevel < level) return;
-            std::string timeStr = getCurrentTime();
-            std::string levelStr = levelToString(msgLevel);
-            std::string fullMsg = "[" + timeStr + "] " + levelStr + ": " + msg;
-
-            std::lock_guard<std::mutex> lock(mtx);
-            if (ofs.is_open()) {
-                ofs << fullMsg << std::endl;
-            } else {
-                std::cout << fullMsg << std::endl;
-            }
-        }
-
-        void logAsync(LogLevel msgLevel, const std::string &msg) {
-
-        }
-    };
 
 }

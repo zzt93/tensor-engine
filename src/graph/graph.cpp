@@ -38,7 +38,7 @@ void GraphOptimizer::fuseLayers(Graph& g) {
                 queue.push_back(pre);
                 pres.emplace(pre->op_type);
             } else {
-                assert(inputSet.contains(output));
+                ASSERT_MSG(inputSet.contains(output) || g.weights.contains(output), "unexpected node output: " << output);
             }
         }
         // pattern match
@@ -93,8 +93,7 @@ void GraphOptimizer::removeDeadNodes(Graph& g) {
             if (outputMap.contains(output)) {
                 queue.push_back(outputMap[output]);
             } else {
-                logger.error("unexpected node output: " + output);
-                assert(inputSet.contains(output));
+                ASSERT_MSG(inputSet.contains(output) || g.weights.contains(output), "unexpected node output: " << output);
             }
         }
     }
@@ -105,10 +104,10 @@ void GraphOptimizer::removeDeadNodes(Graph& g) {
         if (!seen.contains(*it)) {
             it = g.nodes.erase(it);
         } else {
-            ++it;
             for (auto input : (*it)->inputs_) {
                 weight.emplace(input);
             }
+            ++it;
         }
     }
     // delete weights & inputs & outputs if only those node use
@@ -181,7 +180,7 @@ void GraphOptimizer::constFolding(Graph &g) {
 }
 
 std::unique_ptr<ExecutionGraph> Graph::parse() {
-    vector<shared_ptr<ParsedNode>> parsedNodes(nodes.size());
+    vector<shared_ptr<ParsedNode>> parsedNodes{};
     for (const auto &n: nodes) {
         parsedNodes.push_back(make_shared<ParsedNode>(n->inputs_, n->outputs, n->op_type, n->attributes));
     }
@@ -192,11 +191,11 @@ std::unique_ptr<ExecutionGraph> Graph::parse() {
     unordered_map<shared_ptr<ParsedNode>, int> nodeNo;
     unordered_map<int, shared_ptr<ParsedNode>> idxNode;
 
-    int i = 0;
+    int idx = 0;
     for (const auto &n: parsedNodes) {
-        nodeNo[n] = i;
-        idxNode[i] = n;
-        i++;
+        nodeNo[n] = idx;
+        idxNode[idx] = n;
+        idx++;
 
         for (const auto &item: n->outputs) {
             if (allOutputName.contains(item)) {
@@ -222,8 +221,8 @@ std::unique_ptr<ExecutionGraph> Graph::parse() {
     }
     vector<std::shared_ptr<ParsedNode>> start;
     for (int j = 0; j < indegree.size(); ++j) {
-        if (indegree[i] == 0) {
-            start.push_back(idxNode[i]);
+        if (indegree[j] == 0) {
+            start.push_back(idxNode[j]);
         }
     }
 

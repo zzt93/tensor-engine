@@ -31,7 +31,7 @@ bool InferenceEngineContext::readyToExec() {
             return false;
         }
         if (input->second->dims() != config.second->dim) {
-            logger.log(LogLevel::ERROR, "dim not match: expect[" + tostring(config.second->dim) + "], get [" + tostring(input->second->dims()) + "]");
+            logger.log(LogLevel::ERROR, "dim not match: expect '" + config.first + "' [" + tostring(config.second->dim) + "], get [" + tostring(input->second->dims()) + "]");
             return false;
         }
     }
@@ -42,7 +42,12 @@ std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext:
     auto f = M_OP_MAP[node->op_type];
     vector<shared_ptr<Tensor>> input(node->inputs.size());
     for (int i = 0; i < node->inputs.size(); ++i) {
-        input[i] = inputs_[node->inputs[i]];
+        auto &n = node->inputs[i];
+        if (inputs_.find(n) != inputs_.end()) {
+            input[i] = inputs_[n];
+        } else {
+            input[i] = engine->parsed_graph_->getWeight().at(n);
+        }
     }
     OperatorContext ctx(node->attributes);
 #ifdef __CUDACC__
@@ -59,8 +64,9 @@ std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext:
 }
 
 bool InferenceEngineContext::nodeReady(const std::shared_ptr<ParsedNode> &n) {
-    return std::all_of(n->inputs.begin(), n->inputs.end(), [this](string& k) {
-       return inputs_.find(k) != inputs_.end();
+    auto w = engine->parsed_graph_->getWeight();
+    return std::all_of(n->inputs.begin(), n->inputs.end(), [this, &w](string& k) {
+       return inputs_.find(k) != inputs_.end() || w.contains(k);
     });
 }
 
@@ -70,15 +76,22 @@ bool InferenceEngineContext::execute() {
     }
     ++state;
 
+    BlockingQueue<std::shared_ptr<ParsedNode>> work{};
+
     for (const auto &item: engine->parsed_graph_->getStartNode()) {
         work.push_back(item);
     }
-    while (outputs_.size() != engine->parsed_graph_->getConfigOutput().size()) {
+    shared_ptr<ParsedNode> dummy;
+    while (outputs_.size() != engine->parsed_graph_->getConfigOutput().size() && !workers.stopped()) {
         auto node = work.pop();
-        auto f = [this, &node]() {
+        if (node == dummy) {
+            continue;
+        }
+        auto f = [this, &node, &work, &dummy]() {
             auto res = std::move(nodeExec(node));
             if (node->isEnd()) {
                 outputs_.insert(res.begin(), res.end());
+                work.push_back(dummy);
                 return;
             }
             inputs_.insert(res.begin(), res.end());
@@ -102,14 +115,17 @@ bool InferenceEngineContext::execute() {
     CHECK(cudaStreamSynchronize(stream_));
 #endif
     ++state;
-    finish_cond_.notify_all();
+    {
+        std::unique_lock<std::mutex> lock(output_lock_);
+        finish_cond_.notify_all();
+    }
     return true;
 }
 
 const std::shared_ptr<Tensor> InferenceEngineContext::getOutput(const std::string &name) {
     {
         std::unique_lock<std::mutex> lock(output_lock_);
-        finish_cond_.wait(lock, [this] { return !this->finished(); });
+        finish_cond_.wait(lock, [this] { return this->finished(); });
     }
     return outputs_[name];
 }
