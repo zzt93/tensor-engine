@@ -7,11 +7,13 @@ using namespace std;
 
 InferenceEngineContext *InferenceEngine::createExecutionContext() {
 #ifdef USE_CUDA
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     auto res = new InferenceEngineContext(shared_from_this());
-    CUDA_CHECK(cudaStreamCreate(&res.stream_));
     return res;
-#endif
+#else
     return new InferenceEngineContext(shared_from_this());
+#endif
 }
 
 bool InferenceEngineContext::readyToExec() {
@@ -66,7 +68,7 @@ std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext:
 bool InferenceEngineContext::nodeReady(const std::shared_ptr<ParsedNode> &n) {
     auto w = engine->parsed_graph_->getWeight();
     return std::all_of(n->inputs.begin(), n->inputs.end(), [this, &w](string& k) {
-       return inputs_.find(k) != inputs_.end() || w.contains(k);
+       return inputs_.find(k) != inputs_.end() || w.find(k) != w.end();
     });
 }
 
@@ -112,7 +114,7 @@ bool InferenceEngineContext::execute() {
     }
 
 #ifdef USE_CUDA
-    CHECK(cudaStreamSynchronize(stream_));
+    CUDA_CHECK(cudaStreamSynchronize(stream_));
 #endif
     ++state;
     {

@@ -5,6 +5,12 @@ project(tensor_engine LANGUAGES CXX)
 include(CheckLanguage)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
+    file(GLOB_RECURSE CPP_LIST "${PROJECT_SOURCE_DIR}/src/*.cpp")
+    set_source_files_properties(
+            ${CPP_LIST}
+            main.cpp
+            PROPERTIES LANGUAGE CUDA
+    )
     add_definitions(-DUSE_CUDA)
     enable_language(CUDA)
     message(STATUS "CUDA detected: ${CMAKE_CUDA_COMPILER}")

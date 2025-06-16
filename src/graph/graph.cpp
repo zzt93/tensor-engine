@@ -33,24 +33,24 @@ void GraphOptimizer::fuseLayers(Graph& g) {
 
         set<string> pres;
         for (auto output : node->inputs_) {
-            if (outputOfNode.contains(output)) {
+            if (outputOfNode.find(output) != outputOfNode.end()) {
                 auto pre = outputOfNode[output];
                 queue.push_back(pre);
                 pres.emplace(pre->op_type);
             } else {
-                ASSERT_MSG(inputSet.contains(output) || g.weights.contains(output), "unexpected node output: " << output);
+                ASSERT_MSG(inputSet.find(output) != inputSet.end() || g.weights.find(output) != g.weights.end(), "unexpected node output: " << output);
             }
         }
         // pattern match
         auto p = OperatorPattern{pres, node->name};
-        if (g_fusePattern.contains(p)) {
+        if (g_fusePattern.find(p) != g_fusePattern.end()) {
             auto fuse_op = g_fusePattern[p];
             vector<string> fuse_inputs{};
             vector<Attribute> fuse_attrs{};
             g.nodes.remove(node);
             string fuse_name = node->name;
             for (auto output : node->inputs_) {
-                if (outputOfNode.contains(output)) {
+                if (outputOfNode.find(output) != outputOfNode.end()) {
                     auto pre = outputOfNode[output];
                     fuse_name += "_" + pre->name;
                     fuse_inputs.insert(fuse_inputs.end(), pre->inputs_.cbegin(), pre->inputs_.cend());
@@ -90,10 +90,10 @@ void GraphOptimizer::removeDeadNodes(Graph& g) {
         seen.emplace(node);
 
         for (auto output : node->inputs_) {
-            if (outputMap.contains(output)) {
+            if (outputMap.find(output) != outputMap.end()) {
                 queue.push_back(outputMap[output]);
             } else {
-                ASSERT_MSG(inputSet.contains(output) || g.weights.contains(output), "unexpected node output: " << output);
+                ASSERT_MSG(inputSet.find(output) != inputSet.end() || g.weights.find(output) != g.weights.end(), "unexpected node output: " << output);
             }
         }
     }
@@ -101,7 +101,7 @@ void GraphOptimizer::removeDeadNodes(Graph& g) {
     // remove dead node: nodes
     set<string> weight, inputs, outputs;
     for (auto it = g.nodes.begin(); it != g.nodes.end();) {
-        if (!seen.contains(*it)) {
+        if (seen.find(*it) == seen.end()) {
             it = g.nodes.erase(it);
         } else {
             for (auto input : (*it)->inputs_) {
@@ -125,10 +125,10 @@ void GraphOptimizer::constFolding(Graph &g) {
 
     for (auto node : g.nodes) {
         for (auto input : node->inputs_) {
-            if (!node_input.contains(input)) {
-                node_input[input] = vector{node};
-            } else {
+            if (node_input.find(input) != node_input.end()) {
                 node_input[input].push_back(node);
+            } else {
+                node_input[input] = vector{node};
             }
         }
         node_extra[node] = 0;
@@ -198,7 +198,7 @@ std::unique_ptr<ExecutionGraph> Graph::parse() {
         idx++;
 
         for (const auto &item: n->outputs) {
-            if (allOutputName.contains(item)) {
+            if (allOutputName.find(item) != allOutputName.end()) {
                 throw std::runtime_error("Invalid graph: multiple node has same output name: " + item);
             } else {
                 allOutputName[item] = n;

@@ -38,7 +38,15 @@ namespace tensorengine {
         bool nodeReady(const ::std::shared_ptr<ParsedNode>& n);
 
     public:
-        explicit InferenceEngineContext(const ::std::shared_ptr<InferenceEngine>& engine): engine(engine), workers(4) {
+        explicit InferenceEngineContext(const ::std::shared_ptr<InferenceEngine>& engine
+#ifdef USE_CUDA
+                , cudaStream_t stream=nullptr
+#endif
+        ): engine(engine), workers(4)
+#ifdef USE_CUDA
+        , stream_(stream)
+#endif
+        {
         }
 
         InferenceEngineContext(const InferenceEngineContext&) = delete;            // 禁止拷贝构造

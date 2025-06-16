@@ -9,25 +9,26 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
-     #define MY_CUDA_DISPATCH_FLOAT_AND_HALF(TYPE, NAME, ...)    \
+#endif
+
+
+#define MY_CUDA_DISPATCH_FLOAT_AND_HALF(TYPE, NAME, ...)    \
       switch(TYPE) {                                                \
         case DataType::FP32: {                                              \
           using scalar_t = float;                                   \
-          __VA_ARGS__(); break;                                        \
+          __VA_ARGS__; break;                                        \
         }                                                           \
         case DataType::FP64: {                                             \
           using scalar_t = double;                                  \
-          __VA_ARGS__();    break;                                  \
+          __VA_ARGS__;    break;                                  \
         }                                                           \
         case DataType::FP16: {                                               \
           using scalar_t = __half;                                \
-          __VA_ARGS__();   break;                                   \
+          __VA_ARGS__;   break;                                   \
         }                                                           \
         default:                                                    \
           fprintf(stderr, "CUDA not implemented for %s\n", #NAME); \
       }
-#endif
-
 
 namespace tensorengine {
 
@@ -63,7 +64,9 @@ namespace tensorengine {
       std::unordered_map<DeviceType, std::function<bool(const std::initializer_list<std::vector<int>> vectors)>> deviceBroadcast;
       std::function<std::vector<std::vector<int>>(std::initializer_list<std::vector<int>>)> calDim;
     };
-    extern std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext&)>> M_OP_MAP;
+    using op_func_type = void (*)(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext& ctx);
+
+    extern std::unordered_map<std::string, op_func_type> M_OP_MAP;
     extern std::unordered_map<std::string, OperatorDesc> M_OP_DESC;
 
     template<typename T>
@@ -80,15 +83,15 @@ namespace tensorengine {
       switch(TYPE) {                                                \
         case DataType::FP32: {                                              \
           using scalar_t = float;                                   \
-          __VA_ARGS__();    break;                                  \
+          __VA_ARGS__;    break;                                  \
         }                                                           \
         case DataType::FP64: {                                             \
           using scalar_t = double;                                  \
-          __VA_ARGS__();     break;                                 \
+          __VA_ARGS__;     break;                                 \
         }                                                           \
         case DataType::FP16: {                                               \
           using scalar_t = float;                                \
-          __VA_ARGS__();     break;                                 \
+          __VA_ARGS__;     break;                                 \
         }                                                           \
         default:                                                    \
           throw std::runtime_error(#NAME" not implemented for '" + tostring(TYPE) + "'"); \
@@ -98,13 +101,18 @@ namespace tensorengine {
 #ifdef USE_CUDA
     template<typename T, int TILE_SIZE>
     __global__ void matmul(T* A, T* B, T* C, int M, int N, int K);
+    template<>
+    __global__ void matmul<__half, 32>(__half* A, __half* B, __half* C, int M, int N, int K);
 
     template<typename T>
     __global__ void add(const T* A, const T* B, T* C, size_t size);
+    template<>
+    __global__ void add(const __half* A, const __half* B, __half* C, size_t size);
 
     template<typename T>
     __global__ void relu(const T* in, T* out, int n);
-
+    template<>
+    __global__ void relu<__half>(const __half* in, __half* out, int n);
 #endif
 
 

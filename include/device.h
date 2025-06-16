@@ -8,7 +8,7 @@
 #include "cassert"
 #include "util.h"
 
-USE_CUDA
+#ifdef USE_CUDA
 #include <cuda_runtime.h>
 #endif
 
@@ -45,14 +45,14 @@ namespace tensorengine {
     public:
         void* allocate(size_t size) override;
         void* allocateAsync(size_t size
-USE_CUDA
+#ifdef USE_CUDA
                             , cudaStream_t stream
 #endif
 );
         void free(void* ptr) override;
         void copy(void* dest, const void* src, size_t size) override;
         void copyAsync(void* dest, const void* src, size_t size
-USE_CUDA
+#ifdef USE_CUDA
         , cudaStream_t stream
 #endif
         );

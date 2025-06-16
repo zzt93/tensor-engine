@@ -3,7 +3,8 @@
 using namespace tensorengine;
 
 namespace tensorengine {
-    std::unordered_map<std::string, std::function<void(const std::vector<std::shared_ptr<Tensor>>&, std::vector<std::shared_ptr<Tensor>>&, OperatorContext& ctx)>> M_OP_MAP = {
+
+    std::unordered_map<std::string, op_func_type> M_OP_MAP = {
             {OP_GEMM, gemm},
             {OP_ADD, add},
             {OP_RELU, relu},
@@ -59,17 +60,17 @@ void tensorengine::gemm(const std::vector<std::shared_ptr<Tensor>> &input, std::
         case DeviceType::CPU:
             MY_DISPATCH_FLOAT_AND_HALF(
                     dataType, OP_GEMM,
-                    [&] { matmul_cpu<scalar_t>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), m, n, k);}
+                    matmul_cpu<scalar_t>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), m, n, k);
                     );
             break;
         case DeviceType::CUDA:
 #ifdef USE_CUDA
-            int tile_size = 32;
+            const int tile_size = 32;
             dim3 blockDim(tile_size, tile_size);
             dim3 gridDim((m-1)/tile_size+1, (n-1)/tile_size+1);
             MY_CUDA_DISPATCH_FLOAT_AND_HALF(
                 dataType, OP_GEMM,
-                [&] {matmul<scalar_t, tile_size><<<gridDim, blockDim, 0, ctx.stream_>>>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), m, n, k);}
+                matmul<scalar_t, tile_size><<<gridDim, blockDim, 0, ctx.stream_>>>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), m, n, k);
             );
             break;
 #else
@@ -98,7 +99,7 @@ void tensorengine::add(const std::vector<std::shared_ptr<Tensor>> &input, std::v
         case DeviceType::CPU:
             MY_DISPATCH_FLOAT_AND_HALF(
                     dataType, OP_ADD,
-                    [&] { add_cpu<scalar_t>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), n);}
+                    add_cpu<scalar_t>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), n);
             );
             break;
         case DeviceType::CUDA:
@@ -108,7 +109,7 @@ void tensorengine::add(const std::vector<std::shared_ptr<Tensor>> &input, std::v
             dim3 gridDim((n-1)/block_size+1, (n-1)/block_size+1);
             MY_CUDA_DISPATCH_FLOAT_AND_HALF(
                 dataType, OP_ADD,
-                [&] {add<scalar_t><<<gridDim, blockDim, 0, ctx.stream_>>>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), n);}
+                add<scalar_t><<<gridDim, blockDim, 0, ctx.stream_>>>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), n);
             );
             break;
 #else
@@ -138,7 +139,7 @@ void tensorengine::relu(const std::vector<std::shared_ptr<Tensor>> &input, std::
         case DeviceType::CPU:
             MY_DISPATCH_FLOAT_AND_HALF(
                     dataType, OP_RELU,
-                    [&] { relu_cpu<scalar_t>(A->data<scalar_t>(), B->data<scalar_t>(), n);}
+                    relu_cpu<scalar_t>(A->data<scalar_t>(), B->data<scalar_t>(), n);
             );
             break;
         case DeviceType::CUDA:
@@ -148,7 +149,7 @@ void tensorengine::relu(const std::vector<std::shared_ptr<Tensor>> &input, std::
             dim3 gridDim((n-1)/block_size+1, (n-1)/block_size+1);
             MY_CUDA_DISPATCH_FLOAT_AND_HALF(
                 dataType, OP_RELU,
-                [&] {relu<scalar_t><<<gridDim, blockDim, 0, ctx.stream_>>>(A->data<scalar_t>(), B->data<scalar_t>(), n);}
+                relu<scalar_t><<<gridDim, blockDim, 0, ctx.stream_>>>(A->data<scalar_t>(), B->data<scalar_t>(), n);
             );
             break;
 #else
