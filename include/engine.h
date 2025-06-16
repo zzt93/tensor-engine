@@ -5,8 +5,10 @@
 #include "atomic"
 #include <thread>
 #include "operator.h"
+#include <memory>
+#include "cassert"
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 #include <cuda_runtime.h>
 #endif
 
@@ -18,13 +20,13 @@ namespace tensorengine {
     class InferenceEngineContext {
     private:
         Logger logger{};
-#ifdef __CUDACC__
+#ifdef USE_CUDA
         cudaStream_t stream_;
 #endif
 
-        std::shared_ptr<InferenceEngine> engine = nullptr;
-        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> inputs_{};
-        ConcurrentHashMap<std::string, std::shared_ptr<Tensor>> outputs_{};
+        ::std::shared_ptr<InferenceEngine> engine = nullptr;
+        ConcurrentHashMap<std::string, ::std::shared_ptr<Tensor>> inputs_{};
+        ConcurrentHashMap<std::string, ::std::shared_ptr<Tensor>> outputs_{};
 
         std::atomic<int> state{0};
         std::condition_variable finish_cond_;
@@ -32,11 +34,11 @@ namespace tensorengine {
         std::mutex output_lock_;
 
         bool readyToExec();
-        std::unordered_map<std::string, std::shared_ptr<Tensor>> nodeExec(const std::shared_ptr<ParsedNode>& n);
-        bool nodeReady(const std::shared_ptr<ParsedNode>& n);
+        std::unordered_map<std::string, ::std::shared_ptr<Tensor>> nodeExec(const ::std::shared_ptr<ParsedNode>& n);
+        bool nodeReady(const ::std::shared_ptr<ParsedNode>& n);
 
     public:
-        explicit InferenceEngineContext(const std::shared_ptr<InferenceEngine>& engine): engine(engine), workers(4) {
+        explicit InferenceEngineContext(const ::std::shared_ptr<InferenceEngine>& engine): engine(engine), workers(4) {
         }
 
         InferenceEngineContext(const InferenceEngineContext&) = delete;            // 禁止拷贝构造
@@ -44,9 +46,9 @@ namespace tensorengine {
         
         bool execute();
 
-        void setInput(const std::string&name, const std::shared_ptr<Tensor> &tensor);
+        void setInput(const std::string&name, const ::std::shared_ptr<Tensor> &tensor);
 
-        const std::shared_ptr<Tensor> getOutput(const std::string&name);
+        const ::std::shared_ptr<Tensor> getOutput(const std::string&name);
 
         bool finished();
 

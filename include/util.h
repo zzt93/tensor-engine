@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <list>
 #include <sstream>
+#include "cassert"
 
 
 #define CUDA_CHECK(call) \

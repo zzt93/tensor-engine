@@ -48,8 +48,8 @@ void tensorengine::gemm(const std::vector<std::shared_ptr<Tensor>> &input, std::
     DataType dataType = input[0]->data_type();
     std::shared_ptr<Tensor> A = input[0], B = input[1];
     int m = A->dim(1), n = B->dim(0), k = A->dim(0);
-    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(std::vector<int>{n, m}, dataType, device
-#ifdef __CUDACC__
+    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(std::vector<int>{n, m}, dataType, input[0]->device()
+#ifdef USE_CUDA
             , ctx.stream_
 #endif
     );
@@ -63,7 +63,7 @@ void tensorengine::gemm(const std::vector<std::shared_ptr<Tensor>> &input, std::
                     );
             break;
         case DeviceType::CUDA:
-#ifdef __CUDACC__
+#ifdef USE_CUDA
             int tile_size = 32;
             dim3 blockDim(tile_size, tile_size);
             dim3 gridDim((m-1)/tile_size+1, (n-1)/tile_size+1);
@@ -87,8 +87,8 @@ void tensorengine::add(const std::vector<std::shared_ptr<Tensor>> &input, std::v
     DataType dataType = input[0]->data_type();
     std::shared_ptr<Tensor> A = input[0], B = input[1];
     size_t n = A->size();
-    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(std::vector<int>{static_cast<int>(n)}, dataType, device
-#ifdef __CUDACC__
+    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(std::vector<int>{static_cast<int>(n)}, dataType, input[0]->device()
+#ifdef USE_CUDA
             , ctx.stream_
 #endif
     );
@@ -102,7 +102,7 @@ void tensorengine::add(const std::vector<std::shared_ptr<Tensor>> &input, std::v
             );
             break;
         case DeviceType::CUDA:
-#ifdef __CUDACC__
+#ifdef USE_CUDA
             int block_size = 32;
             dim3 blockDim(block_size, block_size);
             dim3 gridDim((n-1)/block_size+1, (n-1)/block_size+1);
@@ -127,8 +127,8 @@ void tensorengine::relu(const std::vector<std::shared_ptr<Tensor>> &input, std::
     DataType dataType = input[0]->data_type();
     std::shared_ptr<Tensor> A = input[0];
     size_t n = A->size();
-    std::shared_ptr<Tensor> B = std::make_shared<Tensor>(std::vector<int>{static_cast<int>(n)}, dataType, device
-#ifdef __CUDACC__
+    std::shared_ptr<Tensor> B = std::make_shared<Tensor>(std::vector<int>{static_cast<int>(n)}, dataType, input[0]->device()
+#ifdef USE_CUDA
             , ctx.stream_
 #endif
     );
@@ -142,7 +142,7 @@ void tensorengine::relu(const std::vector<std::shared_ptr<Tensor>> &input, std::
             );
             break;
         case DeviceType::CUDA:
-#ifdef __CUDACC__
+#ifdef USE_CUDA
             int block_size = 32;
             dim3 blockDim(block_size, block_size);
             dim3 gridDim((n-1)/block_size+1, (n-1)/block_size+1);

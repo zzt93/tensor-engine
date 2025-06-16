@@ -6,7 +6,7 @@ using namespace tensorengine;
 using namespace std;
 
 InferenceEngineContext *InferenceEngine::createExecutionContext() {
-#ifdef __CUDACC__
+#ifdef USE_CUDA
     auto res = new InferenceEngineContext(shared_from_this());
     CUDA_CHECK(cudaStreamCreate(&res.stream_));
     return res;
@@ -50,7 +50,7 @@ std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext:
         }
     }
     OperatorContext ctx(node->attributes);
-#ifdef __CUDACC__
+#ifdef USE_CUDA
     ctx.setStream(stream_);
 #endif
     vector<shared_ptr<Tensor>> output{};
@@ -102,7 +102,7 @@ bool InferenceEngineContext::execute() {
                 }
             }
         };
-#ifdef __CUDACC__
+#ifdef USE_CUDA
         f();
         continue;
 #endif
@@ -111,7 +111,7 @@ bool InferenceEngineContext::execute() {
         // parallel
     }
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
     CHECK(cudaStreamSynchronize(stream_));
 #endif
     ++state;

@@ -4,8 +4,11 @@
 #include "enum.h"
 #include "iostream"
 #include "memory"
+#include "cstring"
+#include "cassert"
+#include "util.h"
 
-#ifdef __CUDACC__
+USE_CUDA
 #include <cuda_runtime.h>
 #endif
 
@@ -38,36 +41,23 @@ namespace tensorengine {
         DeviceType type() const override { return DeviceType::CPU; }
     };
 
-#ifdef __CUDACC__
-
     class CUDADevice : public IDevice {
     public:
-        void* allocate(size_t size) override {
-            void* ptr;
-            CUDA_CHECK(cudaMalloc(&ptr, size));
-            return ptr;
-        }
-
-        void* allocateAsync(size_t size, cudaStream_t stream) override {
-            void* ptr;
-            CUDA_CHECK(cudaMallocAsync(&ptr, size, stream));
-            return ptr;
-        }
-
-        void free(void* ptr) override {
-            CUDA_CHECK(cudaFree(ptr));
-        }
-
-        void copy(void* dest, const void* src, size_t size) override {
-            CUDA_CHECK(cudaMemcpy(dest, src, size, cudaMemcpyDefault));
-        }
-
-        void copyAsync(void* dest, const void* src, size_t size, cudaStream_t stream) override {
-            CUDA_CHECK(cudaMemcpyAsync(dest, src, size, cudaMemcpyDefault, stream));
-        }
-
-        DeviceType type() const override { return DeviceType::CUDA; }
-    };
+        void* allocate(size_t size) override;
+        void* allocateAsync(size_t size
+USE_CUDA
+                            , cudaStream_t stream
 #endif
+);
+        void free(void* ptr) override;
+        void copy(void* dest, const void* src, size_t size) override;
+        void copyAsync(void* dest, const void* src, size_t size
+USE_CUDA
+        , cudaStream_t stream
+#endif
+        );
+        DeviceType type() const override;
+    };
+
 
 }

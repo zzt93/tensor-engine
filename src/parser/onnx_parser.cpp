@@ -13,12 +13,12 @@ namespace tensorengine {
             graph.addInput(TensorMeta{"input_0", std::vector<int>{15, 256}, dataType});
             graph.chooseOutput(TensorMeta{"output_0", std::vector<int>{}, dataType});
             
-            auto mm_weight = std::make_shared<Tensor>(std::vector<int>{256, 128}, dataType, DeviceType::CPU);
+            auto mm_weight = std::make_shared<Tensor>(std::vector<int>{256, 128}, dataType, g_device);
             mm_weight->fill(rands(mm_weight->size(), -1, 1));
             graph.addWeight("onnx::MatMul_1662", mm_weight);
 
-            // auto bias = std::make_shared<Tensor>(std::vector<int>{128}, dataType, DeviceType::CPU);
-            auto bias = std::make_shared<Tensor>(std::vector<int>{15, 128}, dataType, DeviceType::CPU);
+            // auto bias = std::make_shared<Tensor>(std::vector<int>{128}, dataType, g_device);
+            auto bias = std::make_shared<Tensor>(std::vector<int>{15, 128}, dataType, g_device);
             bias->fill(rands(bias->size(), -1, 1));
             graph.addWeight("layers.0.linear1.bias", bias);
 

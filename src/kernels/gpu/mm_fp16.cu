@@ -1,7 +1,10 @@
 
 #ifdef __CUDACC__
+#include "../../../include/operator.h"
+
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
+namespace tensorengine {
 
 
 template<int TILE_SIZE>
@@ -20,8 +23,8 @@ __global__ void matmul(__half* A, __half* B, __half* C, int M, int N, int K) {
         int tiledRow = t * TILE_SIZE + ty;
 
         // 边界检查（防止越界）
-        tileA[ty][tx] = (row < M && tiledCol < K) ? A[row * K + tiledCol] : 0.0;
-        tileB[ty][tx] = (tiledRow < K && col < N) ? B[tiledRow * N + col] : 0.0;
+        tileA[ty][tx] = (row < M && tiledCol < K) ? A[row * K + tiledCol] : __float2half(0.0f);
+        tileB[ty][tx] = (tiledRow < K && col < N) ? B[tiledRow * N + col] : __float2half(0.0f);
 
         __syncthreads();  // 同步块内所有线程
 
@@ -35,5 +38,5 @@ __global__ void matmul(__half* A, __half* B, __half* C, int M, int N, int K) {
 
     if (row < M && col < N) C[row * N + col] = sum;
 }
-
+}
 #endif

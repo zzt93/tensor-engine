@@ -5,6 +5,7 @@
 #pragma once
 
 #include "iostream"
+#include "cassert"
 #include "graph.h"
 
 namespace tensorengine {

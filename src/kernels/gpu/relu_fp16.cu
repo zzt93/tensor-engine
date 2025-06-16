@@ -1,8 +1,10 @@
-#pragma once
 
 #ifdef __CUDACC__
+#include "../../../include/operator.h"
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
+
+namespace tensorengine {
 
 template<>
 __global__ void relu(const __half* in, __half* out, int n) {
@@ -11,6 +13,6 @@ __global__ void relu(const __half* in, __half* out, int n) {
         out[idx] = __hmin(in[idx], __half{0});
     }
 }
-
+}
 
 #endif

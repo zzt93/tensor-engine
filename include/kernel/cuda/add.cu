@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
+namespace tensorengine {
 
 template<typename T>
 __global__ void add(const T* A, const T* B, T* C, size_t size) {
@@ -11,6 +12,7 @@ __global__ void add(const T* A, const T* B, T* C, size_t size) {
     if (idx < size) {
         C[idx] = A[idx] + B[idx];
     }
+}
 }
 
 #endif

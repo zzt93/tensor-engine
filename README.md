@@ -39,4 +39,7 @@ c++
 - initializer_list
 - std::function
 - shared ptr
+  - dynamic cast & dynamic_pointer_cast
 - unique ptr
+- 单例：函数静态局部变量
+- 

@@ -8,7 +8,9 @@
 #include "type.h"
 #include "enum.h"
 #include "util.h"
-
+#include "memory"
+#include "variant"
+#include <iomanip>
 
 namespace tensorengine {
 
@@ -23,11 +25,19 @@ namespace tensorengine {
     public:
         Tensor() = default;
 
-        Tensor(const std::vector<int>& dims, DataType dtype, DeviceType type): Tensor(dims, dtype, IDevice::getDevice(type)) {}
+        Tensor(const std::vector<int>& dims, DataType dtype, DeviceType type
+#ifdef USE_CUDA
+                , cudaStream_t stream = nullptr
+#endif
+               ): Tensor(dims, dtype, IDevice::getDevice(type)
+#ifdef USE_CUDA
+                , stream
+#endif
+               ) {}
 
         Tensor(std::vector<int> dims, DataType dtype, std::shared_ptr<IDevice> dev
-#ifdef __CUDACC__
-                , cudaStream_t stream
+#ifdef USE_CUDA
+                , cudaStream_t stream = nullptr
 #endif
         )
                 : dims_(std::move(dims)), dtype_(dtype), device_(std::move(dev)) {
@@ -46,10 +56,11 @@ namespace tensorengine {
             // 计算字节大小
             size_t type_size = get_type_size(dtype_);
             bytes_ = num_elements * type_size;
-#ifdef __CUDACC__
+#ifdef USE_CUDA
             if (device_->type() == DeviceType::CUDA) {
                 stream_ = stream;
-                data_ = static_cast<std::shared_ptr<CUDADevice>>(device)_->allocateAsync(bytes_, stream);
+                auto cuda = std::dynamic_pointer_cast<CUDADevice>(device_);
+                data_ = cuda->allocateAsync(bytes_, stream);
                 return;
             }
 #endif
@@ -81,9 +92,10 @@ namespace tensorengine {
 
         template<class T>
         void fill(const std::vector<T> ds) {
-#ifdef __CUDACC__
+#ifdef USE_CUDA
             if (device_->type() == DeviceType::CUDA) {
-                static_cast<std::shared_ptr<CUDADevice>>(device)->copyAsync(data_, ds.data(), bytes_, stream_);
+                auto cuda = std::dynamic_pointer_cast<CUDADevice>(device_);
+                cuda->copyAsync(data_, ds.data(), bytes_, stream_);
                 return;
             }
 #endif
@@ -92,8 +104,8 @@ namespace tensorengine {
 
         // 获取形状
         const std::vector<int>& dims() const { return dims_; }
-        const int dim(int d) const { return dims_[d]; }
-        const size_t size() const { return bytes_ / get_type_size(dtype_); }
+        int dim(int d) const { return dims_[d]; }
+        size_t size() const { return bytes_ / get_type_size(dtype_); }
 
         // 设备信息
         std::shared_ptr<IDevice> device() const { return device_; }
@@ -119,7 +131,7 @@ namespace tensorengine {
         DataType dtype_ = DataType::FP32;
         size_t bytes_ = 0;
         std::shared_ptr<IDevice> device_ = nullptr;
-#ifdef __CUDACC__
+#ifdef USE_CUDA
         cudaStream_t stream_;
 #endif
 

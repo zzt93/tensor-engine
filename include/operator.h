@@ -5,7 +5,7 @@
 #include "enum.h"
 #include "util.h"
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
@@ -36,7 +36,7 @@ namespace tensorengine {
         const std::vector<Attribute>& attrs_;
 
         OperatorContext(const std::vector<Attribute>& attrs): attrs_(attrs){}
-#ifdef __CUDACC__
+#ifdef USE_CUDA
         cudaStream_t stream_;
 
         void setStream(cudaStream_t s) {
@@ -95,7 +95,7 @@ namespace tensorengine {
       }
 
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
     template<typename T, int TILE_SIZE>
     __global__ void matmul(T* A, T* B, T* C, int M, int N, int K);
 
@@ -108,10 +108,11 @@ namespace tensorengine {
 #endif
 
 
+}
+
+#include "kernel/cpu/simple_operator.tpp"
+
 #include "kernel/cuda/mm.cu"
 #include "kernel/cuda/add.cu"
 #include "kernel/cuda/relu.cu"
-#include "kernel/cpu/simple_operator.tpp"
 
-
-}

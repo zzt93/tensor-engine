@@ -1,9 +1,11 @@
-#pragma once
 
 #ifdef __CUDACC__
+#include "../../../include/operator.h"
+
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
+namespace tensorengine {
 
 template<>
 __global__ void add(const __half* A, const __half* B, __half* C, size_t size) {
@@ -13,4 +15,5 @@ __global__ void add(const __half* A, const __half* B, __half* C, size_t size) {
     }
 }
 
+}
 #endif

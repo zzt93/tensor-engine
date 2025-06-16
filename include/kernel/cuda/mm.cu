@@ -4,6 +4,8 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
+namespace tensorengine {
+
 template<typename T, int TILE_SIZE>
 __global__ void matmul(T* A, T* B, T* C, int M, int N, int K) {
     __shared__ T tileA[TILE_SIZE][TILE_SIZE];
@@ -35,5 +37,5 @@ __global__ void matmul(T* A, T* B, T* C, int M, int N, int K) {
 
     if (row < M && col < N) C[row * N + col] = sum;
 }
-
+}
 #endif
