@@ -21,6 +21,7 @@ namespace tensorengine {
             const int elements_to_print = 3;  // 每个维度打印前3个元素
             std::vector<int> indices(obj.dims_.size(), 0);
             obj.printRecursive(os, indices, 0, elements_to_print, data);
+            free(data);
             return os;
         }
 

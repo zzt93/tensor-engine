@@ -1,7 +1,7 @@
 #include "../../include/graph.h"
 
 #include <unordered_set>
-
+#include <sstream>
 #include "queue"
 #include "../../include/operator.h"
 
@@ -42,7 +42,7 @@ void GraphOptimizer::fuseLayers(Graph& g) {
             }
         }
         // pattern match
-        auto p = OperatorPattern{pres, node->name};
+        auto p = OperatorPattern{pres, node->op_type};
         if (g_fusePattern.find(p) != g_fusePattern.end()) {
             auto fuse_op = g_fusePattern[p];
             vector<string> fuse_inputs{};
@@ -55,10 +55,15 @@ void GraphOptimizer::fuseLayers(Graph& g) {
                     fuse_name += "_" + pre->name;
                     fuse_inputs.insert(fuse_inputs.end(), pre->inputs_.cbegin(), pre->inputs_.cend());
                     g.nodes.remove(pre);
+                } else { // weight
+                    fuse_inputs.insert(fuse_inputs.end(), output);
                 }
             }
             // 因为合并消除的都是中间变量，不会存储，不需要单独删除
             auto fuse_node = make_shared<Node>(fuse_name, fuse_op, fuse_inputs, node->outputs, fuse_attrs);
+            std::ostringstream oss;
+            oss << "[opt-fuse operator]: " << p << " => " << fuse_op;
+            logger.info(oss.str());
             g.nodes.push_back(fuse_node);
         }
     }
@@ -102,6 +107,7 @@ void GraphOptimizer::removeDeadNodes(Graph& g) {
     set<string> weight, inputs, outputs;
     for (auto it = g.nodes.begin(); it != g.nodes.end();) {
         if (seen.find(*it) == seen.end()) {
+            logger.info("[opt-remove dead node] : " + it->get()->name);
             it = g.nodes.erase(it);
         } else {
             for (auto input : (*it)->inputs_) {
@@ -153,6 +159,7 @@ void GraphOptimizer::constFolding(Graph &g) {
                 }
                 vector<shared_ptr<Tensor>> output{};
                 OperatorContext ctx(node->attributes);
+                // TODO fix in CUDA
                 auto f = M_OP_MAP[node->op_type];
                 f(input, output, ctx);
                 assert(output.size() == node->outputs.size());
@@ -168,6 +175,7 @@ void GraphOptimizer::constFolding(Graph &g) {
                     g.inputs.emplace(meta);
                     input_meta.emplace(meta.name, meta);
                 }
+                logger.info("[opt-const folding]: calculate node:" + node->name + " and generate new input: " + tostring(node->outputs));
                 // remove nodes & weights & inputs
                 g.nodes.remove(node);
                 for (auto input_name : node->inputs_) {
@@ -227,6 +235,14 @@ std::unique_ptr<ExecutionGraph> Graph::parse() {
     }
 
     return make_unique<ExecutionGraph>(start, weights, inputs, outputs);
+}
+
+std::string ParsedNode::tostring() {
+    string res = op_type + "(";
+    for (const auto &item: inputs) {
+        res += (item + ", ");
+    }
+    return res + ")";
 }
 
 std::vector<std::vector<int>> Node::calOutputDim(unordered_map<string, TensorMeta>& metas) {

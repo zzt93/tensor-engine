@@ -16,15 +16,15 @@
       switch(TYPE) {                                                \
         case DataType::FP32: {                                              \
           using scalar_t = float;                                   \
-          __VA_ARGS__; break;                                        \
+          __VA_ARGS__; CUDA_CHECK(cudaGetLastError()); break;                                        \
         }                                                           \
         case DataType::FP64: {                                             \
           using scalar_t = double;                                  \
-          __VA_ARGS__;    break;                                  \
+          __VA_ARGS__;  CUDA_CHECK(cudaGetLastError()); break;                                  \
         }                                                           \
         case DataType::FP16: {                                               \
           using scalar_t = __half;                                \
-          __VA_ARGS__;   break;                                   \
+          __VA_ARGS__;  CUDA_CHECK(cudaGetLastError());  break;                                   \
         }                                                           \
         default:                                                    \
           fprintf(stderr, "CUDA not implemented for %s\n", #NAME); \
@@ -75,6 +75,9 @@ namespace tensorengine {
     // A 为 MxK, B 为 KxN, C 为 MxN
     template<typename T>
     void matmul_cpu(T* A, T* B, T* C, int M, int N, int K);
+    // A 为 MxK, B 为 KxN, C 为 MxN, D = A @ B + C
+    template<typename T>
+    void mma_cpu(T* A, T* B, T* C, T* D, int M, int N, int K);
 
     template<typename T>
     void relu_cpu(const T* in, T* out, int n);
@@ -104,6 +107,11 @@ namespace tensorengine {
     template<>
     __global__ void matmul<__half, 32>(__half* A, __half* B, __half* C, int M, int N, int K);
 
+    template<typename T, int TILE_SIZE>
+    __global__ void mma_kernel(T* A, T* B, T* C, T* D, int M, int N, int K);
+    template<>
+    __global__ void mma_kernel<__half, 32>(__half* A, __half* B, __half* C, __half* D, int M, int N, int K);
+
     template<typename T>
     __global__ void add(const T* A, const T* B, T* C, size_t size);
     template<>
@@ -121,6 +129,7 @@ namespace tensorengine {
 #include "kernel/cpu/simple_operator.tpp"
 
 #include "kernel/cuda/mm.cu"
+#include "kernel/cuda/mma.cuh"
 #include "kernel/cuda/add.cu"
 #include "kernel/cuda/relu.cu"
 

@@ -168,6 +168,12 @@ namespace tensorengine {
         void error(const std::string &msg) {
             log(LogLevel::ERROR, msg);
         }
+        void warn(const std::string &msg) {
+            log(LogLevel::WARNING, msg);
+        }
+        void info(const std::string &msg) {
+            log(LogLevel::INFO, msg);
+        }
 
         void log(LogLevel msgLevel, const std::string &msg) {
             if (msgLevel < level) return;

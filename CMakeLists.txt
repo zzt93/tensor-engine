@@ -4,6 +4,8 @@ project(tensor_engine LANGUAGES CXX)
 # 尝试启用CUDA
 include(CheckLanguage)
 check_language(CUDA)
+set(CMAKE_CUDA_ARCHITECTURES 75)
+
 if(CMAKE_CUDA_COMPILER)
     file(GLOB_RECURSE CPP_LIST "${PROJECT_SOURCE_DIR}/src/*.cpp")
     set_source_files_properties(
@@ -58,10 +60,12 @@ add_executable(tensor_engine main.cpp
         src/kernels/operator.cpp
         src/kernels/gpu/add_fp16.cu
         include/kernel/cuda/mm.cu
+        include/kernel/cuda/mma.cuh
         include/kernel/cuda/relu.cu
         include/kernel/cpu/simple_operator.tpp
         include/kernel/cuda/add.cu
         src/kernels/gpu/mm_fp16.cu
         src/kernels/gpu/relu_fp16.cu
+        src/kernels/gpu/mma_fp16.cu
         src/graph/tensor.cpp
         src/device/CUDADevice.cu)

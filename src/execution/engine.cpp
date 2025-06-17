@@ -40,6 +40,14 @@ bool InferenceEngineContext::readyToExec() {
     return true;
 }
 
+string tensorDim(const vector<shared_ptr<Tensor>>& tensor) {
+    string res = "";
+    for (const auto &item: tensor) {
+        res = res + "(" + tostring(item->dims()) + "), ";
+    }
+    return res;
+}
+
 std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext::nodeExec(const std::shared_ptr<ParsedNode> &node) {
     auto f = M_OP_MAP[node->op_type];
     vector<shared_ptr<Tensor>> input(node->inputs.size());
@@ -56,7 +64,9 @@ std::unordered_map<std::string, std::shared_ptr<Tensor>> InferenceEngineContext:
     ctx.setStream(stream_);
 #endif
     vector<shared_ptr<Tensor>> output{};
+    logger.info("input dim: " + tensorDim(input));
     f(input, output, ctx);
+    logger.info("output dim: " + tensorDim(output));
     unordered_map<std::string, std::shared_ptr<Tensor>> res{};
     assert(output.size() == node->outputs.size());
     for (int i = 0; i < node->outputs.size(); ++i) {
@@ -74,6 +84,7 @@ bool InferenceEngineContext::nodeReady(const std::shared_ptr<ParsedNode> &n) {
 
 bool InferenceEngineContext::execute() {
     if (!readyToExec() && state != 0) {
+        logger.error("fail to start execution");
         return false;
     }
     ++state;
@@ -89,7 +100,10 @@ bool InferenceEngineContext::execute() {
         if (node == dummy) {
             continue;
         }
+        logger.info("prepare: " + node->tostring());
         auto f = [this, &node, &work, &dummy]() {
+            logger.info("running: " + node->tostring());
+
             auto res = nodeExec(node);
             if (node->isEnd()) {
                 outputs_.insert(res.begin(), res.end());

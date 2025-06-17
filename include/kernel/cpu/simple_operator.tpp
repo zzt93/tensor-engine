@@ -32,4 +32,10 @@ namespace tensorengine {
             out[i] = in[i] > zero ? in[i] : zero;
         }
     }
+
+    template<typename T>
+    void mma_cpu(T *A, T *B, T *C, T *D, int M, int N, int K) {
+        matmul_cpu<T>(A, B, D, M, N, K);
+        add_cpu<T>(D, C, D, M * N);
+    }
 }

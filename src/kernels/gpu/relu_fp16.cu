@@ -10,7 +10,7 @@ template<>
 __global__ void relu(const __half* in, __half* out, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) {
-        out[idx] = __hmin(in[idx], __half{0});
+        out[idx] = __hmax(in[idx], __half{0});
     }
 }
 }

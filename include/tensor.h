@@ -104,7 +104,12 @@ namespace tensorengine {
 
         // 获取形状
         const std::vector<int>& dims() const { return dims_; }
-        int dim(int d) const { return dims_[d]; }
+        int dim(int d) const {
+            if (d > 0)
+                return dims_[d];
+            else
+                return dims_[dims_.size() + d];
+        }
         size_t size() const { return bytes_ / get_type_size(dtype_); }
 
         // 设备信息

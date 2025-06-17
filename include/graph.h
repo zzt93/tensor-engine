@@ -47,6 +47,8 @@ namespace tensorengine {
         bool isEnd() const {
             return to.empty();
         }
+
+        std::string tostring();
     };
 
     class ExecutionGraph {
@@ -158,6 +160,11 @@ namespace tensorengine {
             seed ^= (seed << 6) + (seed >> 2) + 0x6F246971 + setHash(obj.inputOps);
             seed ^= (seed << 6) + (seed >> 2) + 0x0CC0D21B + std::hash<std::string>()(obj.outputOp);
             return seed;
+        }
+
+        friend std::ostream &operator<<(std::ostream &os, const OperatorPattern &pattern) {
+            os << "{inputOps: " << tostring(pattern.inputOps) << " outputOp: " << pattern.outputOp << "}";
+            return os;
         }
     };
 

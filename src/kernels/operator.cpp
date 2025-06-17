@@ -9,6 +9,7 @@ namespace tensorengine {
             {OP_ADD, add},
             {OP_RELU, relu},
             {OP_EXPAND, broadcast},
+            {F_OP_MMA, mma},
     };
 
     std::unordered_map<std::string, OperatorDesc> M_OP_DESC = [] {
@@ -48,8 +49,8 @@ void tensorengine::gemm(const std::vector<std::shared_ptr<Tensor>> &input, std::
     DeviceType device = input[0]->device_type();
     DataType dataType = input[0]->data_type();
     std::shared_ptr<Tensor> A = input[0], B = input[1];
-    int m = A->dim(1), n = B->dim(0), k = A->dim(0);
-    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(std::vector<int>{n, m}, dataType, input[0]->device()
+    int m = A->dim(-2), n = B->dim(-1), k = A->dim(-1);
+    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(std::vector<int>{m, n}, dataType, input[0]->device()
 #ifdef USE_CUDA
             , ctx.stream_
 #endif
@@ -79,6 +80,47 @@ void tensorengine::gemm(const std::vector<std::shared_ptr<Tensor>> &input, std::
     }
 
 }
+
+void tensorengine::mma(const std::vector<std::shared_ptr<Tensor>> &input, std::vector<std::shared_ptr<Tensor>> &output, OperatorContext &ctx) {
+    checkInput(input);
+    assert(input.size() == 3);
+    assert(output.size() == 0);
+
+    DeviceType device = input[0]->device_type();
+    DataType dataType = input[0]->data_type();
+    std::shared_ptr<Tensor> A = input[0], B = input[1], C = input[2];
+    int m = A->dim(-2), n = B->dim(-1), k = A->dim(-1);
+    std::shared_ptr<Tensor> D = std::make_shared<Tensor>(std::vector<int>{m, n}, dataType, input[0]->device()
+#ifdef USE_CUDA
+            , ctx.stream_
+#endif
+    );
+    output.push_back(D);
+
+    switch (device) {
+        case DeviceType::CPU:
+            MY_DISPATCH_FLOAT_AND_HALF(
+                    dataType, OP_GEMM,
+                    mma_cpu<scalar_t>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), D->data<scalar_t>(), m, n, k);
+            );
+            break;
+        case DeviceType::CUDA:
+#ifdef USE_CUDA
+            const int tile_size = 32;
+            dim3 blockDim(tile_size, tile_size);
+            dim3 gridDim((m-1)/tile_size+1, (n-1)/tile_size+1);
+            MY_CUDA_DISPATCH_FLOAT_AND_HALF(
+                dataType, OP_GEMM,
+                mma_kernel<scalar_t, tile_size><<<gridDim, blockDim, 0, ctx.stream_>>>(A->data<scalar_t>(), B->data<scalar_t>(), C->data<scalar_t>(), D->data<scalar_t>(), m, n, k);
+            );
+            break;
+#else
+            throw std::runtime_error("not support cuda");
+#endif
+    }
+
+}
+
 void tensorengine::add(const std::vector<std::shared_ptr<Tensor>> &input, std::vector<std::shared_ptr<Tensor>> &output, OperatorContext& ctx) {
     checkInput(input);
     assert(input.size() == 2);
@@ -88,7 +130,7 @@ void tensorengine::add(const std::vector<std::shared_ptr<Tensor>> &input, std::v
     DataType dataType = input[0]->data_type();
     std::shared_ptr<Tensor> A = input[0], B = input[1];
     size_t n = A->size();
-    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(std::vector<int>{static_cast<int>(n)}, dataType, input[0]->device()
+    std::shared_ptr<Tensor> C = std::make_shared<Tensor>(A->dims(), dataType, input[0]->device()
 #ifdef USE_CUDA
             , ctx.stream_
 #endif
@@ -128,7 +170,7 @@ void tensorengine::relu(const std::vector<std::shared_ptr<Tensor>> &input, std::
     DataType dataType = input[0]->data_type();
     std::shared_ptr<Tensor> A = input[0];
     size_t n = A->size();
-    std::shared_ptr<Tensor> B = std::make_shared<Tensor>(std::vector<int>{static_cast<int>(n)}, dataType, input[0]->device()
+    std::shared_ptr<Tensor> B = std::make_shared<Tensor>(A->dims(), dataType, input[0]->device()
 #ifdef USE_CUDA
             , ctx.stream_
 #endif

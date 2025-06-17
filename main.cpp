@@ -22,7 +22,7 @@ int main() {
     // 执行推理
     auto context = engine->createExecutionContext();
     shared_ptr<Tensor> input = getInputData();
-    cout << "input: " << *input << endl;
+    if (g_testing) cout << "input: " << *input << endl;
     context->setInput("input_0", input);
     bool exec = context->execute();
     if (exec) {
@@ -32,7 +32,7 @@ int main() {
 }
 
 shared_ptr<Tensor> getInputData() {
-    auto input = std::make_shared<Tensor>(std::vector<int>{15, 256}, DataType::FP32, g_device);
+    auto input = std::make_shared<Tensor>(g_dims[0], DataType::FP32, g_device);
 //    auto input = std::make_shared<Tensor>(std::vector<int>{1, 15, 256}, DataType::FP32, g_device);
     input->fill(rands(input->size(), 0, 1));
     return input;
