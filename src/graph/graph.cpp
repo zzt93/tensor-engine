@@ -121,11 +121,7 @@ void GraphOptimizer::removeDeadNodes(Graph& g) {
 }
 
 void GraphOptimizer::constFolding(Graph &g) {
-    // deduce dim
-    unordered_map<string, TensorMeta> input_meta;
-    for (auto tensor_meta : g.inputs) {
-        input_meta.emplace(tensor_meta.name, tensor_meta);
-    }
+
     unordered_map<string, vector<shared_ptr<Node>>> node_input;
     unordered_map<shared_ptr<Node>, int> node_extra;
 
@@ -159,28 +155,27 @@ void GraphOptimizer::constFolding(Graph &g) {
                 }
                 vector<shared_ptr<Tensor>> output{};
                 OperatorContext ctx(node->attributes);
-                // TODO fix in CUDA
+#ifdef USE_CUDA
+                ctx.setStream(nullptr);
+#endif
                 auto f = M_OP_MAP[node->op_type];
                 f(input, output, ctx);
+#ifdef USE_CUDA
+                CUDA_CHECK(cudaStreamSynchronize(nullptr));
+#endif
                 assert(output.size() == node->outputs.size());
                 auto data_type = input[0]->data_type();
-                auto output_dims = node->calOutputDim(input_meta);
-                assert(output_dims.size() == node->outputs.size());
-                // add new weight & input
+                // add new weight
                 for (int i = 0; i < node->outputs.size(); ++i) {
                     q.push(node->outputs[i]);
 
                     g.weights[node->outputs[i]] = output[i];
-                    auto meta = TensorMeta{node->outputs[i], output_dims[i], data_type};
-                    g.inputs.emplace(meta);
-                    input_meta.emplace(meta.name, meta);
                 }
                 logger.info("[opt-const folding]: calculate node:" + node->name + " and generate new input: " + tostring(node->outputs));
                 // remove nodes & weights & inputs
                 g.nodes.remove(node);
                 for (auto input_name : node->inputs_) {
                     g.weights.erase(input_name);
-                    g.inputs.erase(TensorMeta{input_name, {}, data_type});
                 }
             }
         }

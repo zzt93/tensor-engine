@@ -28,7 +28,7 @@ Demo engine like `tensorrt` or `onnxruntime` to learn C++
 - ONNX 算子实现规约
 - ONNX 矩阵乘法广播
 - CUDA operator & fp16 特化实现
-  - tiled mm
+  - tiled mm(NT format)
   - add
   - relu
 
@@ -41,4 +41,4 @@ c++
   - dynamic cast & dynamic_pointer_cast
 - unique ptr
 - 单例：函数静态局部变量
-- 并发安全 hashmap（左倾红黑树）、queue
+- 并发安全 hashmap（左倾红黑树）、blocking queue
