@@ -45,6 +45,388 @@
 
 namespace tensorengine {
 
+// 2-3 tree, left red
+// left < mid < right
+    template<typename Key, typename T, class _Compare = std::less<Key>>
+    class RBTree2 {
+    private:
+        class TreeNode {
+        public:
+            std::pair<Key, T> val;
+            TreeNode *parent;
+            TreeNode *left;
+            TreeNode *right;
+            Color c;
+
+            TreeNode(std::pair<Key, T> data, TreeNode* parent): val(data), c(RED), parent(parent), left(nullptr), right(nullptr) {
+            }
+
+            void flipColor() {
+                if (c == RED) c = BLACK;
+                else c = RED;
+            }
+
+            void setLeft(TreeNode *l) {
+                this->left = l;
+                if (l == nullptr) return;
+                l->parent = this;
+            }
+
+            void setRight(TreeNode *r) {
+                this->right = r;
+                if (r == nullptr) return;
+                r->parent = this;
+            }
+
+            friend std::ostream& operator<<(std::ostream& os, const TreeNode* n) {
+                os << n->colorFormat() << n->val.first << "\033[0m";
+                return os;
+            }
+
+            std::string colorFormat() const {
+                switch (this->c) {
+                    case RED:
+                        return "\033[31m";
+                    case BLACK:
+                        return "\033[30m";
+                }
+            }
+        };
+
+        TreeNode *fake;
+        _Compare cmp;
+
+        bool isLessThan(const Key& l, const Key& v) const {
+            return cmp(l, v);
+        }
+
+        TreeNode *root() const {
+            return fake->left;
+        }
+
+        void setRoot(TreeNode *r) {
+            fake->setLeft(r);
+        }
+
+        void leftRotate(TreeNode *pivot) {
+            auto parent = pivot->parent;
+            auto right = pivot->right;
+            assert(parent != nullptr);
+            assert(right != nullptr);
+
+            if (pivot == parent->left) {
+                parent->setLeft(right);
+            } else {
+                parent->setRight(right);
+            }
+            auto subLeft = right->left;
+            right->setLeft(pivot);
+            pivot->setRight(subLeft);
+        }
+
+        void rightRotate(TreeNode *pivot) {
+            auto parent = pivot->parent;
+            auto left = pivot->left;
+            assert(parent != nullptr);
+            assert(left != nullptr);
+
+            if (parent->left == pivot) {
+                parent->setLeft(left);
+            } else {
+                parent->setRight(left);
+            }
+            auto subRight = left->right;
+            left->setRight(pivot);
+            pivot->setLeft(subRight);
+        }
+
+        void redNodeWithRedLeft(TreeNode *parent) {
+            assert(parent->c == RED);
+            assert(parent->left->c == RED);
+
+            TreeNode *grand = parent->parent;
+            assert(grand != nullptr);
+            rightRotate(grand);
+            parent->flipColor();
+            grand->flipColor();
+
+            flipUp(parent);
+        }
+
+        void flipUp(TreeNode *parent) {
+            // B
+            //R R
+            assert(parent->left->c == RED);
+            assert(parent->right->c == RED);
+            bool twoSonRed = (parent->right != nullptr && parent->right->c == RED) && (parent->left != nullptr && parent->left->c == RED) && parent->c == BLACK;
+            assert(twoSonRed);
+            TreeNode* red = nullptr;
+            parent->right->flipColor();
+            parent->left->flipColor();
+            parent->flipColor();
+            if (parent == root()) {
+                parent->flipColor();
+                return;
+            }
+            red = parent;
+            parent = parent->parent;
+            twoSonRed = (parent->right != nullptr && parent->right->c == RED) && (parent->left != nullptr && parent->left->c == RED) && parent->c == BLACK;
+            if (twoSonRed) {
+                flipUp(parent);
+                return;
+            }
+            bool twoRed = parent->c == RED;
+            if (!twoRed) {
+                if (red == parent->right) {
+                    leftRotate(parent);
+                    red->flipColor();
+                    parent->flipColor();
+                }
+                return;
+            }
+            //  R
+            // R *
+            if (red == parent->right) {
+                // 处理右倾
+                leftRotate(parent);
+
+                redNodeWithRedLeft(red);
+            } else {
+                redNodeWithRedLeft(parent);
+            }
+        }
+
+        // return if exist
+        bool binarySearch(TreeNode *r, Key v, TreeNode*& insertionNode) const {
+            if (r == nullptr) {
+                return false;
+            }
+            bool last = false;
+            if (isLessThan(r->val.first, v)) {
+                if (r->right != nullptr) {
+                    return binarySearch(r->right, v, insertionNode);
+                } else {
+                    last = true;
+                }
+            } else if (isLessThan(v, r->val.first)) {
+                if (r->left != nullptr) {
+                    binarySearch(r->left, v, insertionNode);
+                } else {
+                    last = true;
+                }
+            } else {
+                insertionNode = r;
+                return true;
+            }
+            if (last) {
+                insertionNode = r;
+            }
+            return false;
+        }
+
+        TreeNode* pre(TreeNode* now) {
+            assert(false);
+        }
+
+        static TreeNode* min(TreeNode* now) {
+            if (now == nullptr) {
+                return nullptr;
+            }
+            while (now->left != nullptr) {
+                now = now->left;
+            }
+            return now;
+        }
+
+        static TreeNode* next(TreeNode* now, TreeNode* root) {
+            if (now == nullptr) assert(false);
+            if (now->right != nullptr) {
+                return min(now->right);
+            }
+            while (now != root) {
+                TreeNode* parent = now->parent;
+                if (parent->left == now) {
+                    return parent;
+                }
+                now = parent;
+            }
+            return nullptr;
+        }
+    public:
+        template<typename Pointer, typename Reference>
+        class _iterator_base {
+        protected:
+            TreeNode *now;
+            TreeNode *root;
+        public:
+            _iterator_base(TreeNode* root, TreeNode *n) : now(n), root(root) {}
+
+        public:
+
+            Reference operator*() const { return now->val; }
+            Pointer operator->() const { return &(now->val); }
+
+            _iterator_base& operator++() {
+                now = next(now, root);
+                return *this;
+            }
+
+            _iterator_base operator++(int) {
+                iterator tmp = *this;
+                ++*this;
+                return tmp;
+            }
+
+            bool operator==(const _iterator_base& other) const {
+                return now == other.now;
+            }
+
+            bool operator!=(const _iterator_base& other) const {
+                return !(*this == other);
+            }
+
+        };
+
+        class iterator : public _iterator_base<std::pair<Key, T>*, std::pair<Key, T>&> {
+        public:
+            using base = _iterator_base<std::pair<Key, T>*, std::pair<Key, T>&>;
+            using base::base;
+        };
+
+        class const_iterator : public _iterator_base<const std::pair<Key, T>*, const std::pair<Key, T>&> {
+        public:
+            using base = _iterator_base<const std::pair<Key, T>*, const std::pair<Key, T>&>;
+            using base::base;
+        };
+
+        iterator begin() {
+            return iterator(root(), min(root()));
+        }
+        iterator end() {
+            return iterator(root(), nullptr);
+        }
+        const_iterator begin() const {
+            return const_iterator(root(), min(root()));
+        }
+        const_iterator end() const {
+            return const_iterator(root(), nullptr);
+        }
+
+
+        RBTree2(): fake(new TreeNode(make_pair(Key{}, T{}), nullptr)), cmp(_Compare()) {
+        }
+
+        friend std::ostream& operator<<(std::ostream& os, const RBTree2<Key, T>& p) {
+            os << "RBTree[" << std::endl;
+            if (p.root() == nullptr) {
+                os << "]";
+                return os;
+            }
+            TreeNode empty(make_pair(Key{}, T{}), nullptr);
+            TreeNode blackLeaf(make_pair(Key{}, T{}), nullptr);
+            blackLeaf.flipColor();
+
+            std::queue<TreeNode*> q;
+            q.push(p.root());
+            q.push(&empty);
+            while (!q.empty()) {
+                TreeNode* a = q.front();
+                q.pop();
+                if (a == &empty) {
+                    os << std::endl;
+                    if (!q.empty()) {
+                        q.push(&empty);
+                    }
+                    continue;
+                } else if (a == &blackLeaf) {
+                    os << blackLeaf.colorFormat() << "null\033[0m ";
+                    continue;
+                }
+                auto n = next(a, p.root());
+                os << a << "(" << (n != nullptr ? std::to_string(n->val.first) : "nop") << ") ";
+                if (a->left != nullptr) {
+                    q.push(a->left);
+                } else {
+                    q.push(&blackLeaf);
+                }
+                if (a->right != nullptr) {
+                    q.push(a->right);
+                } else {
+                    q.push(&blackLeaf);
+                }
+            }
+            os << "]";
+            return os;
+        }
+
+        void insert(Key k, T v) {
+            if (this->root() == nullptr) {
+                this->setRoot(new TreeNode(make_pair(k, v), nullptr));
+                this->root()->flipColor();
+                return;
+            }
+            TreeNode* parent = nullptr;
+            bool found = binarySearch(this->root(), k, parent);
+            if (found) {
+                parent->val = make_pair(k, v);
+                return;
+            }
+            if (isLessThan(k, parent->val.first)) {
+                assert(parent->left == nullptr);
+                parent->left = new TreeNode(make_pair(k, v), parent);
+                if (parent->c == BLACK) {
+                    return;
+                }
+                redNodeWithRedLeft(parent);
+            } else {
+                assert(parent->right == nullptr);
+                auto now = new TreeNode(make_pair(k, v), parent);
+                parent->right = now;
+
+                if (parent->c == BLACK) {
+                    if (parent->left == nullptr || parent->left->c == BLACK) {
+                        // 处理右倾
+                        leftRotate(parent);
+                        parent->flipColor();
+                        now->flipColor();
+                    } else {
+                        flipUp(parent);
+                    }
+                } else {
+                    leftRotate(parent);
+                    redNodeWithRedLeft(now);
+                }
+            }
+
+        }
+
+        iterator find(Key k) {
+            TreeNode* parent = nullptr;
+            bool exist = binarySearch(root(), k, parent);
+            if (exist) {
+                return iterator(root(), parent);
+            }
+            return end();
+        }
+
+        const_iterator find(Key k) const {
+            TreeNode* parent = nullptr;
+            bool exist = binarySearch(root(), k, parent);
+            if (exist) {
+                return const_iterator(root(), parent);
+            }
+            return end();
+        }
+
+        void push_back(std::pair<Key, T> p) {
+            insert(p.first, p.second);
+        }
+
+        bool empty() {
+            return root() == nullptr;
+        }
+    };
+
     template<typename T>
     class BlockingQueue {
     private:
@@ -209,7 +591,7 @@ namespace tensorengine {
         static const size_t DEFAULT_BUCKET_COUNT = 16;
         static constexpr float LOAD_FACTOR = 0.75;
         typedef std::pair<K, V> KeyValuePair;
-        typedef std::list<KeyValuePair> Bucket;
+        typedef RBTree2<K, V> Bucket;
 
 
         std::vector<Bucket> bucket_;
@@ -222,16 +604,12 @@ namespace tensorengine {
         void insert_unique(std::pair<const K, V> pair) {
             size_t i = idx(pair.first);
             std::lock_guard<std::mutex> lock(bucket_lock_[i]);
-            if (bucket_[i].empty()) {
-                bucket_[i].push_back(pair);
-                size_++;
+            auto it = bucket_[i].find(pair.first);
+            if (it != bucket_[i].end()) {
+                it->second = pair.second;
+                return;
             } else {
-                for (auto &item: bucket_[i]) {
-                    if (equal_f_(item.first, pair.first)) {
-                        item.second = pair.second;
-                        return;
-                    }
-                }
+                // it.insert?
                 bucket_[i].push_back(pair);
                 size_++;
             }
@@ -333,12 +711,9 @@ namespace tensorengine {
             size_t i = idx(key);
             std::lock_guard<std::mutex> lock(bucket_lock_[i]);
             const Bucket &bucket = bucket_[i];
-            if (!bucket.empty()) {
-                for (auto it = bucket.begin(); it != bucket.end(); it++) {
-                    if (equal_f_(it->first, key)) {
-                        return iterator(&bucket_, bucket_.size(), it);
-                    }
-                }
+            auto it = bucket.find(key);
+            if (it != bucket.end()) {
+                return iterator(&bucket_, bucket_.size(), it);
             }
             return end();
         }
@@ -348,14 +723,14 @@ namespace tensorengine {
             return iterator(&bucket_, 0, bucket_[0].begin());
         }
         iterator end() {
-            return iterator(&bucket_, size(), typename Bucket::iterator{});
+            return iterator(&bucket_, size(), typename Bucket::const_iterator{nullptr, nullptr});
         }
         using const_iterator = iterator;
         const_iterator begin() const {
-            return const_iterator(&bucket_, 0, bucket_[0].cbegin());
+            return const_iterator(&bucket_, 0, bucket_[0].begin());
         }
         const_iterator end() const {
-            return const_iterator(&bucket_, size(), typename Bucket::const_iterator{});
+            return const_iterator(&bucket_, size(), typename Bucket::const_iterator{nullptr, nullptr});
         }
 
         size_t size() const {

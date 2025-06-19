@@ -31,6 +31,11 @@ namespace tensorengine {
         None
     };
 
+    enum Color {
+        RED,
+        BLACK,
+    };
+
     const std::string OP_RELU = "Relu";
     const std::string OP_GEMM = "MatMul";
     const std::string OP_ADD = "Add";
