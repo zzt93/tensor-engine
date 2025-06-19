@@ -16,6 +16,8 @@ Demo engine like `tensorrt` or `onnxruntime` to learn C++
 
 - 算子融合（element wise）
   - mm + add
+  - expand + add
+  - expand + mm
 - 图优化
   - remove dead node
   - const fold
@@ -24,9 +26,16 @@ Demo engine like `tensorrt` or `onnxruntime` to learn C++
 - Graph(weight、结构) 和 input、计算中间结果 分离
 - 同时支持CUDA、CPU
   - CPU环境 线程池并发执行计算图（拓扑顺序）
-  - CUDA环境 stream批量提交kernel
-- ONNX 算子实现规约
-- ONNX 矩阵乘法广播
+  - CUDA环境 stream异步统一提交kernel（CUDA Graph可能更加并行）
+- ONNX 
+  - 算子实现规约
+  - IR 约定：算子没有直接指针，通过input、output关联；weight在graph，方便复用
+- ONNX 广播
+  - 矩阵乘法batch维度广播（gpu、cpu）
+    - 广播输入B
+    - batch小于8直接使用shared memory
+  - 加法batch维度广播（gpu、cpu）
+  - 加法双向广播（cpu）
 - CUDA operator & fp16 特化实现
   - tiled mm(NT format)
   - add

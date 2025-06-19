@@ -35,7 +35,6 @@ void GraphOptimizer::fuseLayers(Graph& g) {
         for (auto output : node->inputs_) {
             if (outputOfNode.find(output) != outputOfNode.end()) {
                 auto pre = outputOfNode[output];
-                queue.push_back(pre);
                 pres.emplace(pre->op_type);
             } else {
                 ASSERT_MSG(inputSet.find(output) != inputSet.end() || g.weights.find(output) != g.weights.end(), "unexpected node output: " << output);
@@ -65,6 +64,15 @@ void GraphOptimizer::fuseLayers(Graph& g) {
             oss << "[opt-fuse operator]: " << p << " => " << fuse_op;
             logger.info(oss.str());
             g.nodes.push_back(fuse_node);
+
+            queue.push_back(fuse_node);
+        } else {
+            for (auto output : node->inputs_) {
+                if (outputOfNode.find(output) != outputOfNode.end()) {
+                    auto pre = outputOfNode[output];
+                    queue.push_back(pre);
+                }
+            }
         }
     }
 
@@ -120,7 +128,7 @@ void GraphOptimizer::removeDeadNodes(Graph& g) {
 
 }
 
-void GraphOptimizer::constFolding(Graph &g) {
+void GraphOptimizer::constFolding(Graph &g, std::set<std::string> skip_ops) {
 
     unordered_map<string, vector<shared_ptr<Node>>> node_input;
     unordered_map<shared_ptr<Node>, int> node_extra;
@@ -147,7 +155,7 @@ void GraphOptimizer::constFolding(Graph &g) {
 
         for (auto node : node_input[const_input]) {
             node_extra[node] += 1;
-            if (node_extra[node] == node->inputs_.size()) {
+            if (node_extra[node] == node->inputs_.size() && skip_ops.find(node->op_type) == skip_ops.end()) {
                 // exec
                 vector<shared_ptr<Tensor>> input(node->inputs_.size());
                 for (int i = 0; i < node->inputs_.size(); ++i) {
@@ -263,6 +271,7 @@ std::vector<std::vector<int>> Node::calOutputDim(unordered_map<string, TensorMet
 void Graph::opt() {
     GraphOptimizer optimizer;
     optimizer.removeDeadNodes(*this);
+    optimizer.constFolding(*this, {OP_EXPAND});
     optimizer.fuseLayers(*this);
     optimizer.constFolding(*this);
 }
@@ -270,7 +279,9 @@ void Graph::opt() {
 namespace tensorengine {
     std::unordered_map<OperatorPattern, std::string, OperatorPatternHash> g_fusePattern = {
         {OperatorPattern{set<string>{OP_GEMM}, OP_ADD}, F_OP_MMA},
-        {OperatorPattern{set<string>{OP_EXPAND}, OP_ADD}, F_OP_BATCH_ADD},
         {OperatorPattern{set<string>{OP_EXPAND}, OP_GEMM}, F_OP_BATCH_MM},
+        {OperatorPattern{set<string>{OP_EXPAND}, F_OP_MMA}, F_OP_BATCH_MMA},
+        {OperatorPattern{set<string>{F_OP_BATCH_MM}, OP_ADD}, F_OP_BATCH_MMA},
+        {OperatorPattern{set<string>{OP_EXPAND}, OP_ADD}, F_OP_BATCH_ADD},
     };
 }

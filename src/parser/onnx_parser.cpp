@@ -34,7 +34,8 @@ namespace tensorengine {
             if (g_testing) std::cout << "bias2: " <<  *bias2 << std::endl;
             graph.addWeight("layers.0.linear1.bias2", bias2);
 
-            graph.addNode(std::make_shared<Node>(std::string("/layers.0/linear1/MatMul"), OP_GEMM, std::vector<std::string>{"input_0", "onnx::MatMul_1662"}, std::vector<std::string>{"/layers.0/linear1/MatMul_output_0"}, std::vector<Attribute>{}));
+            graph.addNode(std::make_shared<Node>(std::string("/layers.0/linear1/Expand"), OP_EXPAND, std::vector<std::string>{"onnx::MatMul_1662"}, std::vector<std::string>{"onnx::MatMul_0"}, std::vector<Attribute>{}));
+            graph.addNode(std::make_shared<Node>(std::string("/layers.0/linear1/MatMul"), OP_GEMM, std::vector<std::string>{"input_0", "onnx::MatMul_0"}, std::vector<std::string>{"/layers.0/linear1/MatMul_output_0"}, std::vector<Attribute>{}));
             graph.addNode(std::make_shared<Node>(std::string("/layers.0/linear0/Add"), OP_ADD, std::vector<std::string>{"layers.0.linear1.bias1", "layers.0.linear1.bias2"}, std::vector<std::string>{"layers.0.linear1.bias"}, std::vector<Attribute>{}));
             graph.addNode(std::make_shared<Node>(std::string("/layers.0/linear1/Add"), OP_ADD, std::vector<std::string>{"/layers.0/linear1/MatMul_output_0", "layers.0.linear1.bias"}, std::vector<std::string>{"/layers.0/linear1/Add_output_0"}, std::vector<Attribute>{}));
             graph.addNode(std::make_shared<Node>(std::string("/layers.0/Relu"), OP_RELU, std::vector<std::string>{"/layers.0/linear1/Add_output_0"}, std::vector<std::string>{"output_0"}, std::vector<Attribute>{}));

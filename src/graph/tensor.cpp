@@ -49,7 +49,7 @@ namespace tensorengine {
     void Tensor::printRecursive(std::ostream &os, std::vector<int> &indices, int dim, int n, void *data) const {
         if (dim == dims_.size()) {
             size_t offset = getOffset(stride_, indices);
-            os << std::fixed << std::setprecision(5) << getElement(data, offset) << " ";
+            os << std::fixed << std::setprecision(5) << getElement(data, offset) << ", ";
             return;
         }
         os << "[";

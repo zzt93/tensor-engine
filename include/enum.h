@@ -37,5 +37,6 @@ namespace tensorengine {
     const std::string OP_EXPAND = "Expand";
     const std::string F_OP_MMA = "MatMulAdd";
     const std::string F_OP_BATCH_MM = "BatchMatMul";
-    const std::string F_OP_BATCH_ADD = "BatchMatMulAdd";
+    const std::string F_OP_BATCH_MMA = "BatchMatMulAdd";
+    const std::string F_OP_BATCH_ADD = "BatchAdd";
 }

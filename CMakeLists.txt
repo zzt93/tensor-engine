@@ -59,11 +59,11 @@ add_executable(tensor_engine main.cpp
         src/util/logger.cpp
         src/kernels/operator.cpp
         src/kernels/gpu/add_fp16.cu
-        include/kernel/cuda/mm.cu
+        include/kernel/cuda/mm.cuh
         include/kernel/cuda/mma.cuh
-        include/kernel/cuda/relu.cu
+        include/kernel/cuda/relu.cuh
         include/kernel/cpu/simple_operator.tpp
-        include/kernel/cuda/add.cu
+        include/kernel/cuda/add.cuh
         src/kernels/gpu/mm_fp16.cu
         src/kernels/gpu/relu_fp16.cu
         src/kernels/gpu/mma_fp16.cu

@@ -133,7 +133,7 @@ namespace tensorengine {
         // output 反向推导 input，删除未使用节点
         static void removeDeadNodes(Graph&);
         // input 前向推导，如果input都是常量，计算并删除节点
-        static void constFolding(Graph&);
+        static void constFolding(Graph&, std::set<std::string> skip_ops = {});
     };
 
     class OperatorPattern {
